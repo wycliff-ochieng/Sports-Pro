@@ -1,19 +1,68 @@
 package handlers
 
 import (
+	"context"
+	"encoding/json"
 	"log"
 	"net/http"
+	"sports/authservice/internal/service"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 type AuthHandler struct {
-	l *log.Logger
+	l  *log.Logger
+	As *service.AuthService
 }
 
-func NewAuthHandler(l *log.Logger) *AuthHandler {
-	return &AuthHandler{l}
+type RegisterReq struct {
+	ID        uuid.UUID
+	FirstName string
+	LastName  string
+	Email     string
+	Password  string
 }
 
-func (a *AuthHandler) Register(w http.ResponseWriter, r *http.Request) error {
+func NewAuthHandler(l *log.Logger, as *service.AuthService) *AuthHandler {
+	return &AuthHandler{
+		l:  l,
+		As: as,
+	}
+}
+
+func (a *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	a.l.Println(">>>REGISTER USER HANDLE TOUCHED")
-	return nil
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	var RegisterUser *RegisterReq
+
+	err := json.NewDecoder(r.Body).Decode(&RegisterUser)
+	if err != nil {
+		a.l.Printf("error:%v", err)
+		http.Error(w, "Error decoding data", http.StatusInternalServerError)
+		return
+	}
+
+	//validate if info is in correct format
+	if RegisterUser.FirstName == "" || RegisterUser.LastName == "" || RegisterUser.Email == "" || RegisterUser.Password == "" {
+		http.Error(w, "Error:", http.StatusExpectationFailed)
+		return
+	}
+
+	user, err := a.As.Register(ctx, RegisterUser.ID, RegisterUser.FirstName, RegisterUser.LastName, RegisterUser.Email, RegisterUser.Password)
+	if err == service.ErrEmailExists {
+		http.Error(w, "ERROR: email already exists", http.StatusExpectationFailed)
+		return
+	}
+	if err != nil {
+		a.l.Println("failed to register user:%v", err)
+		http.Error(w, "unable to register user", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(&user)
 }
