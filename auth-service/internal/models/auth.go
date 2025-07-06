@@ -24,6 +24,13 @@ type Metadata struct {
 	Location string `json:"location"`
 }
 
+type UserResponse struct {
+	FirstName string
+	LastName  string
+	Email     string
+	CreatedAt time.Time
+}
+
 func NewUser(id uuid.UUID, firstname string, lastname string, password string, email string) (*User, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
