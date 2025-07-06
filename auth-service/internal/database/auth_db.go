@@ -3,22 +3,40 @@ package database
 import (
 	"context"
 	"database/sql"
+	"embed"
+	"fmt"
 	"log"
+	"sports/authservice/internal/config"
 
+	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
 )
 
 type DBInterface interface {
-	QueryRowContext(ctx context.Context)
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
 
 type PostgresDB struct {
-	db *sql.DB
+	db  *sql.DB
+	cfg *config.Config
 }
 
-func NewPostgresDB(db *sql.DB) (*PostgresDB, error) {
+var migrationsFS embed.FS
 
-	dsn := "user=postgres password=password host=localhost port=5432 dbname=User sslmode=require"
+func NewPostgresDB(cfg *config.Config) (*PostgresDB, error) {
+
+	//dsn := "user=" + cfg.DBUser + "password=" + cfg.DBPassword + "host=" + cfg.DBHost + "port=" + strconv.Itoa(cfg.DBPort) + "dbname=" + cfg.DBName + "sslmode= " + cfg.DBsslmode
+	dsn := fmt.Sprintf(
+		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
+		cfg.DBUser,
+		cfg.DBPassword,
+		cfg.DBHost,
+		cfg.DBPort,
+		cfg.DBName,
+		cfg.DBsslmode,
+	)
 
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
@@ -30,11 +48,22 @@ func NewPostgresDB(db *sql.DB) (*PostgresDB, error) {
 		log.Fatalf("error setting dialect:%v", err)
 	}
 
-	if err := goose.Up(db, "migrations"); err != nil {
+	if err := goose.Up(db, "internal/database/migrations"); err != nil {
 		log.Fatalf("error spinning up goose:%v", err)
 	}
 
 	log.Println(">>>>migrations run successfully...")
 
 	return &PostgresDB{db: db}, nil
+}
+
+func (p *PostgresDB) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	return p.db.QueryRowContext(ctx, query, args...)
+}
+
+func (p *PostgresDB) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+	return p.db.QueryContext(ctx, query, args...)
+}
+func (p *PostgresDB) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+	return p.db.ExecContext(ctx, query, args...)
 }
