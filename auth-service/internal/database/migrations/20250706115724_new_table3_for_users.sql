@@ -14,3 +14,4 @@ CREATE TABLE IF NOT EXISTS Users(
 
 -- +goose Down
 DROP TABLE IF EXISTS Users;
+
