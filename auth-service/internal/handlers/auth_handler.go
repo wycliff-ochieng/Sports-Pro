@@ -24,6 +24,11 @@ type RegisterReq struct {
 	Password  string
 }
 
+type LoginReq struct{
+	Email string
+	Password string
+}
+
 func NewAuthHandler(l *log.Logger, as *service.AuthService) *AuthHandler {
 	return &AuthHandler{
 		l:  l,
@@ -58,7 +63,7 @@ func (a *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		a.l.Println("failed to register user:%v", err)
+		a.l.Printf("failed to register user:%v", err)
 		http.Error(w, "unable to register user", http.StatusBadRequest)
 		return
 	}
@@ -66,3 +71,5 @@ func (a *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(&user)
 }
+
+func (a *AuthHandler) Login(w http.ResponseWriter, r *http.Request){}
