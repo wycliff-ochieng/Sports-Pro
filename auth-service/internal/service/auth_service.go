@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"sports/authservice/internal/database"
+	"sports/authservice/internal/handlers"
 	"sports/authservice/internal/models"
 
 	"github.com/google/uuid"
@@ -52,4 +54,25 @@ func (s *AuthService) Register(ctx context.Context, id uuid.UUID, firstname stri
 		Email:     user.Email,
 		CreatedAt: user.CreatedAT,
 	}, nil
+}
+
+func (s *AuthService) Login(ctx context.Context, email string, password string) (*handlers.TokenPair, *models.UserResponse, error) {
+	var user models.User
+
+	query := `SELECT id, email,password,firstname,lastname,createdat,updatedat FROM Users WHERE email = $1`
+
+	err := s.db.QueryRowContext(ctx, query, email).Scan(
+		&user.ID,
+		&user.Email,
+		&user.Password,
+		&user.FirstName,
+		&user.LastName,
+		&user.CreatedAT,
+		&user.UpdatedAT,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil, ErrNotFound
+	}
+	return nil, nil, nil
 }
