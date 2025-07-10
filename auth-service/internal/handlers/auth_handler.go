@@ -24,8 +24,8 @@ type RegisterReq struct {
 	Password  string
 }
 
-type LoginReq struct{
-	Email string
+type LoginReq struct {
+	Email    string
 	Password string
 }
 
@@ -72,4 +72,20 @@ func (a *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(&user)
 }
 
-func (a *AuthHandler) Login(w http.ResponseWriter, r *http.Request){}
+func (a *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	var req LoginReq
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "error picking up json response", http.StatusInternalServerError)
+		return
+	}
+
+	//validate user input
+	if req.Email == " " || req.Password == " " {
+		http.Error(w, "email or password required", http.StatusExpectationFailed)
+		return
+	}
+
+	//authenticate user (user service transactions)
+	//token, user, err :=
+}
