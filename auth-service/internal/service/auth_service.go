@@ -4,16 +4,19 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	auth "sports/authservice/internal/auth"
 	"sports/authservice/internal/database"
-	"sports/authservice/internal/handlers"
 	"sports/authservice/internal/models"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 var (
-	ErrEmailExists = errors.New("email already esists")
-	ErrNotFound    = errors.New("email does not exists")
+	ErrEmailExists     = errors.New("email already esists")
+	ErrNotFound        = errors.New("email does not exists")
+	ErrInvalidPassword = errors.New("incorrect passowrd")
 )
 
 type AuthService struct {
@@ -56,7 +59,7 @@ func (s *AuthService) Register(ctx context.Context, id uuid.UUID, firstname stri
 	}, nil
 }
 
-func (s *AuthService) Login(ctx context.Context, email string, password string) (*handlers.TokenPair, *models.UserResponse, error) {
+func (s *AuthService) Login(ctx context.Context, email string, password string) (*auth.TokenPair, *models.UserResponse, error) {
 	var user models.User
 
 	query := `SELECT id, email,password,firstname,lastname,createdat,updatedat FROM Users WHERE email = $1`
@@ -74,5 +77,25 @@ func (s *AuthService) Login(ctx context.Context, email string, password string) 
 	if err == sql.ErrNoRows {
 		return nil, nil, ErrNotFound
 	}
-	return nil, nil, nil
+	if err != nil {
+		return nil, nil, fmt.Errorf("user not found:%v", err)
+	}
+	//compare password
+	if err := user.ComparePassword(password); err != nil {
+		return nil, nil, fmt.Errorf("passwords do no match: %v", err)
+	}
+
+	//generate token pair
+	token, err := auth.GenerateTokenPair(
+		user.ID,
+		user.Email,
+		string(auth.JWTSecret),     //jwtsecret
+		string(auth.RefreshSecret), //refreshsecret
+		time.Hour*24,
+		time.Hour*24*7,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate tokens: %v", err)
+	}
+	return token, &models.UserResponse{}, nil
 }
