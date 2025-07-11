@@ -29,6 +29,12 @@ type LoginReq struct {
 	Password string
 }
 
+type AuthenticationResponse struct {
+	User         interface{}
+	AccessToken  string
+	RefreshToken string
+}
+
 func NewAuthHandler(l *log.Logger, as *service.AuthService) *AuthHandler {
 	return &AuthHandler{
 		l:  l,
@@ -88,4 +94,23 @@ func (a *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	//authenticate user (user service transactions)
 	//token, user, err :=
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	token, user, err := a.As.Login(ctx, req.Email, req.Password)
+	if err == service.ErrNotFound || err == service.ErrInvalidPassword {
+		http.Error(w, "USER NOT FOUND,INVALID PASSWORD", http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		http.Error(w, "FAILED TO SIGN IN", http.StatusInternalServerError)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(AuthenticationResponse{
+		User:         user,
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
+	})
 }
