@@ -7,8 +7,7 @@ import (
 	"net/http"
 	"sports/authservice/internal/service"
 	"time"
-
-	"github.com/google/uuid"
+	//"github.com/google/uuid"
 )
 
 type AuthHandler struct {
@@ -17,7 +16,7 @@ type AuthHandler struct {
 }
 
 type RegisterReq struct {
-	ID        uuid.UUID
+	ID        int
 	FirstName string
 	LastName  string
 	Email     string
@@ -95,7 +94,7 @@ func (a *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	//authenticate user (user service transactions)
 	//token, user, err :=
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
 	token, user, err := a.As.Login(ctx, req.Email, req.Password)
@@ -105,6 +104,8 @@ func (a *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		http.Error(w, "FAILED TO SIGN IN", http.StatusInternalServerError)
+		a.l.Printf("reason: %v", err)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")

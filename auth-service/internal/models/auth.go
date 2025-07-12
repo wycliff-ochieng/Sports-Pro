@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
+	//"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
-	ID          uuid.UUID `json:"id"`
+	ID          int       `json:"id"`
 	FirstName   string    `json:"firstname"`
 	LastName    string    `json:"lastname"`
 	Email       string    `json:"email"`
@@ -31,7 +31,7 @@ type UserResponse struct {
 	CreatedAt time.Time
 }
 
-func NewUser(id uuid.UUID, firstname string, lastname string, password string, email string) (*User, error) {
+func NewUser(id int, firstname string, lastname string, email string, password string) (*User, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("HASH_ERROR:Failed to harsh password:%v", err)

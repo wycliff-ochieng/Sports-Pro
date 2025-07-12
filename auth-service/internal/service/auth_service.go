@@ -9,8 +9,7 @@ import (
 	"sports/authservice/internal/database"
 	"sports/authservice/internal/models"
 	"time"
-
-	"github.com/google/uuid"
+	//"github.com/google/uuid"
 )
 
 var (
@@ -24,10 +23,12 @@ type AuthService struct {
 }
 
 func NewAuthService(db database.DBInterface) *AuthService {
-	return &AuthService{db}
+	return &AuthService{
+		db: db,
+	}
 }
 
-func (s *AuthService) Register(ctx context.Context, id uuid.UUID, firstname string, lastname string, email string, password string) (*models.UserResponse, error) {
+func (s *AuthService) Register(ctx context.Context, id int, firstname string, lastname string, email string, password string) (*models.UserResponse, error) {
 
 	var exists bool
 
@@ -62,7 +63,7 @@ func (s *AuthService) Register(ctx context.Context, id uuid.UUID, firstname stri
 func (s *AuthService) Login(ctx context.Context, email string, password string) (*auth.TokenPair, *models.UserResponse, error) {
 	var user models.User
 
-	query := `SELECT id, email,password,firstname,lastname,createdat,updatedat FROM Users WHERE email = $1`
+	query := `SELECT userid, email,password,firstname,lastname,createdat,updatedat FROM Users WHERE email = $1`
 
 	err := s.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID,
@@ -97,5 +98,10 @@ func (s *AuthService) Login(ctx context.Context, email string, password string) 
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate tokens: %v", err)
 	}
-	return token, &models.UserResponse{}, nil
+	return token, &models.UserResponse{
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Email:     user.Email,
+		CreatedAt: user.CreatedAT,
+	}, nil
 }

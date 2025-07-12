@@ -36,6 +36,7 @@ func Load() (*Config, error) {
 	config.DBUser = getEnv("DB_USER", "admin")
 	config.DBsslmode = getEnv("DB_SSLMODE", "disable")
 	config.JWTSecret = getEnv("JWT_SECRET", "mydogiscalledrufus")
+	config.RefreshSecret = getEnv("REFRESH_SECRET", "myotherdogiscalledseedolf")
 
 	return config, nil
 }

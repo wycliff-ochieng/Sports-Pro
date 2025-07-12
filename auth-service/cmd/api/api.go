@@ -41,6 +41,9 @@ func (s *APIServer) Run() {
 	registerRouter := router.Methods("POST").Subrouter()
 	registerRouter.HandleFunc("/register", ah.Register)
 
+	loginRouter := router.Methods("POST").Subrouter()
+	loginRouter.HandleFunc("/login", ah.Login)
+
 	if err := http.ListenAndServe(s.addr, router); err != nil {
 		log.Fatalf("error listening to server:%v", err)
 	}
