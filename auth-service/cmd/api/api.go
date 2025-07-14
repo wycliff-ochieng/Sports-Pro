@@ -7,6 +7,7 @@ import (
 	"sports/authservice/internal/config"
 	"sports/authservice/internal/database"
 	"sports/authservice/internal/handlers"
+	"sports/authservice/internal/producer"
 	"sports/authservice/internal/service"
 
 	"github.com/gorilla/mux"
@@ -34,9 +35,17 @@ func (s *APIServer) Run() {
 		log.Fatalf("something critical broke: %v", err)
 	}
 
+	p, err := internal.InitKafkaProducer()
+	if err != nil {
+		log.Fatalf("something failed when initializing: %s", err)
+	}
+
 	sh := service.NewAuthService(db)
 
-	ah := handlers.NewAuthHandler(l, sh)
+	//kp := producer.PublishUserCreation()
+	ep := internal.NewCreateUser(p,"profiles")
+
+	ah := handlers.NewAuthHandler(l, sh, ep)
 
 	registerRouter := router.Methods("POST").Subrouter()
 	registerRouter.HandleFunc("/register", ah.Register)
