@@ -7,6 +7,8 @@ import (
 	"github.com/wycliff-ochieng/internal/database"
 )
 
+type Profile interface{}
+
 type UserService struct {
 	db database.DBInterface
 }
@@ -16,7 +18,7 @@ type EventsData struct {
 	Email  string `json:"email"`
 }
 
-func NewUser(db database.DBInterface) *UserService {
+func NewUserService(db database.DBInterface) *UserService {
 	return &UserService{db}
 }
 
@@ -29,6 +31,19 @@ func (u *UserService) CreateUserProfile(ctx context.Context, userID int, email s
 	_, err := u.db.ExecContext(ctx, query, event.UserID, event.Email)
 	if err != nil {
 		return fmt.Errorf("something happened: %v", err)
+	}
+
+	return nil
+}
+
+func (u *UserService) GetProfileByID(ctx context.Context,userID int) error{
+	var event EventsData
+	
+	query := "SELECT * from profiles WHERE id=$1"
+
+	_, err := u.db.ExecContext(ctx, query,event.UserID)
+	if err != nil{
+		return err
 	}
 
 	return nil
