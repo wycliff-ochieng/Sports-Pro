@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 
+	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
 	"github.com/wycliff-ochieng/internal/config"
 )
@@ -42,7 +43,7 @@ func Newpostgres(cfg *config.Config) (*Postgres, error) {
 		log.Fatalf("error setting dialect:%v", err)
 	}
 
-	if err := goose.Up(db, "internal/database/migrations"); err != nil {
+	if err := goose.Up(db, "./internal/database/migrations"); err != nil {
 		log.Fatalf("error spinning up goose:%v", err)
 	}
 
