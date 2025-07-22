@@ -14,3 +14,5 @@ func NewUserHandler(l *log.Logger) *UserHandler {
 }
 
 func (u *UserHandler) UpdateUserProfile(w http.ResponseWriter, r *http.Request) {}
+
+func (u *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {}
