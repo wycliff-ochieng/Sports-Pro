@@ -24,7 +24,7 @@ type UserEventConsumer struct {
 func NewUserEventConsumer(l *log.Logger, u *service.UserService, bootstrapServers string, groupID string) (*UserEventConsumer, error) {
 
 	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrapservers":  bootstrapServers,
+		"bootstrap.servers": bootstrapServers,
 		"group.id":          groupID,
 		"auto.offset.reset": "smallest",
 	})
@@ -39,7 +39,7 @@ func NewUserEventConsumer(l *log.Logger, u *service.UserService, bootstrapServer
 	}, nil
 }
 
-func (c *UserEventConsumer) StartConsumer(ctx context.Context, topic string) {
+func (c *UserEventConsumer) StartEventConsumer(ctx context.Context, topic string) {
 
 	err := c.consumer.Subscribe(topic, nil)
 	if err != nil {
