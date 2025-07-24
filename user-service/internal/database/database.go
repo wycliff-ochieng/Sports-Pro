@@ -12,8 +12,9 @@ import (
 )
 
 type DBInterface interface {
-	//QueryRowContext(ctx context.Context, query string, args ...interface{})
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	BeginTx(ctx context.Context,opt *sql.TxOptions) (*sql.Tx, error)
 }
 
 type Postgres struct {
@@ -51,9 +52,9 @@ func Newpostgres(cfg *config.Config) (*Postgres, error) {
 	return &Postgres{db: db}, nil
 }
 
-//func (p *Postgres) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
-//	return p.db.QueryRowContext(ctx, query, args...)
-//}
+func (p *Postgres) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	return p.db.QueryRowContext(ctx, query, args...)
+}
 
 func (p *Postgres) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
 	return p.db.ExecContext(ctx, query, args...)
