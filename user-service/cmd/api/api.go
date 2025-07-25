@@ -10,6 +10,7 @@ import (
 	"github.com/wycliff-ochieng/internal/config"
 	"github.com/wycliff-ochieng/internal/consumer"
 	"github.com/wycliff-ochieng/internal/database"
+	internal "github.com/wycliff-ochieng/internal/producer"
 	"github.com/wycliff-ochieng/internal/service"
 )
 
@@ -40,9 +41,16 @@ func (s *APIServer) Run() {
 	if err != nil {
 		log.Fatalf("something fatal hapenned: %v", err)
 	}
+	//set up kafka producer
+	p, err := internal.InitKafkaProducer()
+	if err != nil {
+		log.Fatalf("something failed when initializing: %s", err)
+	}
+
+	ep := internal.NewUpdateUser(p, "profile")
 
 	//set up repo service
-	us := service.NewUserService(db)
+	us := service.NewUserService(l, db, ep)
 
 	//set up kafka
 	ks, err := consumer.NewUserEventConsumer(l, us, bootstrapServers, groupID)
