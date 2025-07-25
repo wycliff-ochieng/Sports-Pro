@@ -15,15 +15,6 @@ type UserHandler struct {
 	p service.Profile
 }
 
-type UpdatePofileReq struct {
-	UserID    int
-	Firstname string
-	Lastname  string
-	avatar    string
-	Email     string
-	//Createdat string
-	Updatedat time.Time
-}
 
 func NewUserHandler(l *log.Logger, p service.Profile) *UserHandler {
 	return &UserHandler{
@@ -37,9 +28,9 @@ func (u *UserHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {}
 func (u *UserHandler) UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 	u.l.Println(">>>updating user profile")
 
-	ctx := context.WithCancel(r.context(),)
+	ctx := context.WithDeadline(pctx,deadline)
 
-	var user *UpdatePofileReq
+	var user *service.UpdatePofileReq
 
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
@@ -50,7 +41,7 @@ func (u *UserHandler) UpdateUserProfile(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "please enter a valid name", http.StatusBadRequest)
 	}
 
-	profile, err := u.p.UpdateUserProfile(ctx, user.UserID, user.Firstname, user.Lastname,user.avatar,user.Email, user.Updatedat)
+	profile, err := u.p.UpdateUserProfile(ctx, user.UserID, user.Firstname, user.Lastname, user.avatar, user.Email, user.Updatedat)
 
 	w.Header().Add("Content-Type", "Application/json")
 	json.NewEncoder(w).Encode(&profile)
