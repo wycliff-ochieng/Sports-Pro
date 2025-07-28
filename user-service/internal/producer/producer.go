@@ -27,7 +27,7 @@ func NewUpdateUser(p *kafka.Producer, topic string) *UpdateUser {
 	}
 }
 
-func (c *UpdateUser) PublishUserCreation(ctx context.Context, userData interface{}) error {
+func (c *UpdateUser) PublishUserUpdate(ctx context.Context, userData interface{}) error {
 
 	data, err := json.Marshal(userData)
 	if err != nil {
