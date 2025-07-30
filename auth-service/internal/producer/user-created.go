@@ -27,6 +27,20 @@ func NewCreateUser(p *kafka.Producer, topic string) *CreateUser {
 	}
 }
 
+func (c *CreateUser) DeliveryReportHandler() {
+	for e := range c.deliverych {
+		switch ev := e.(type) {
+		case *kafka.Message:
+			if ev.TopicPartition.Error != nil {
+				//message was not delivered
+				log.Printf("CRITICAL , Delivery failed for message in topic %s : %v\n", *&ev.TopicPartition, ev.TopicPartition.Error)
+			} else {
+				log.Printf("successfuly delivered message to topic %s, partition %d, and offset %v\n", *ev.TopicPartition.Topic, ev.TopicPartition.Partition, ev.TopicPartition.Offset)
+			}
+		}
+	}
+}
+
 func (c *CreateUser) PublishUserCreation(ctx context.Context, userData interface{}) error {
 
 	data, err := json.Marshal(userData)
@@ -41,8 +55,13 @@ func (c *CreateUser) PublishUserCreation(ctx context.Context, userData interface
 		},
 		Value: data,
 	}, c.deliverych)
-	fmt.Println("Published event onto the queue")
-	return fmt.Errorf("failed to publish user creation data: %s", err)
+	if err != nil {
+		log.Printf("failed to enqueueu message: %v", err)
+		return fmt.Errorf("failed to enqueue message for kafka:%v", err)
+	}
+	log.Printf(">>successfully published event to the topic :%v", c.topic)
+	fmt.Println("Published event onto the topic")
+	return nil
 }
 
 func InitKafkaProducer() (*kafka.Producer, error) {
@@ -51,6 +70,7 @@ func InitKafkaProducer() (*kafka.Producer, error) {
 		"client.id":         "wyckie",
 		"acks":              "all",
 	})
+	fmt.Println("initialized successfully....")
 	if err != nil {
 		log.Fatalf("failed to produce user created event: %s", err)
 	}
