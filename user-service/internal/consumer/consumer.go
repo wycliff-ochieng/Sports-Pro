@@ -6,13 +6,15 @@ import (
 	"log"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/wycliff-ochieng/internal/service"
 )
 
 type UserEventCreated struct {
-	UserID int    `json:"userid"`
-	Email  string `json:"email"`
+	UserID    int    `json:"userid"`
+	FirstName string `json:"firstname"`
+	LastName  string `json:"lastname"`
+	Email     string `json:"email"`
 }
 
 type UserEventConsumer struct {
@@ -75,11 +77,11 @@ func (c *UserEventConsumer) StartEventConsumer(ctx context.Context, topic string
 				//call database /create profile service
 				//database operation context
 				opCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-				err := c.u.CreateUserProfile(opCtx, event.UserID, event.Email)
+				err := c.u.CreateUserProfile(opCtx, event.UserID, event.FirstName, event.LastName, event.Email)
 				if err != nil {
-					log.Fatalf("")
+					log.Fatalf("Error creating userprofile: %v", err)
 				}
-				cancel()
+				defer cancel()
 
 				if err != nil {
 					c.l.Printf("some error when creating user profile %d:%v", event.UserID, err)
