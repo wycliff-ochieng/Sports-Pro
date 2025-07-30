@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	fmt.Println("<<<<working on user service")
+	fmt.Println("<<<<working on authentication service")
 
 	cfg, err := config.Load()
 	if err != nil {
