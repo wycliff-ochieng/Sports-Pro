@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	internal "sports/authservice/internal/producer"
 	"sports/authservice/internal/service"
 	"time"
 	//"github.com/google/uuid"
@@ -13,6 +14,7 @@ import (
 type AuthHandler struct {
 	l  *log.Logger
 	As *service.AuthService
+	p  internal.KafkaProducer
 }
 
 type RegisterReq struct {
@@ -34,10 +36,17 @@ type AuthenticationResponse struct {
 	RefreshToken string
 }
 
-func NewAuthHandler(l *log.Logger, as *service.AuthService) *AuthHandler {
+type UserCreatedEvent struct {
+	FirstName string `json:"firstname"`
+	LastName  string `json:"lastname"`
+	Email     string `json:"email"`
+}
+
+func NewAuthHandler(l *log.Logger, as *service.AuthService, p internal.KafkaProducer) *AuthHandler {
 	return &AuthHandler{
 		l:  l,
 		As: as,
+		p:  p,
 	}
 }
 
@@ -71,6 +80,19 @@ func (a *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		a.l.Printf("failed to register user:%v", err)
 		http.Error(w, "unable to register user", http.StatusBadRequest)
 		return
+	}
+
+	//after successfull event creation ,create user created event
+
+	event := UserCreatedEvent{
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Email:     user.Email,
+	}
+
+	err = a.p.PublishUserCreation(ctx, event)
+	if err != nil {
+		a.l.Println("CRITICAL Failed to publish usercreation event")
 	}
 
 	w.Header().Set("Content-Type", "application/json")
