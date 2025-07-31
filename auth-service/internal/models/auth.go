@@ -25,10 +25,11 @@ type Metadata struct {
 }
 
 type UserResponse struct {
-	FirstName string
-	LastName  string
-	Email     string
-	CreatedAt time.Time
+	UserID    int       `json:"userId"`
+	FirstName string    `json:"firstname"`
+	LastName  string    `json:"lastname"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"createdat"`
 }
 
 func NewUser(id int, firstname string, lastname string, email string, password string) (*User, error) {
