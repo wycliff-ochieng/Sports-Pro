@@ -11,7 +11,7 @@ import (
 )
 
 type UserEventCreated struct {
-	UserID    int    `json:"userid"`
+	UserID    int    `json:"userId"`
 	FirstName string `json:"firstname"`
 	LastName  string `json:"lastname"`
 	Email     string `json:"email"`
@@ -64,6 +64,7 @@ func (c *UserEventConsumer) StartEventConsumer(ctx context.Context, topic string
 			switch e := ev.(type) {
 			case *kafka.Message:
 				c.l.Printf("consumed messge from topic %s [%d] at offset %v", *e.TopicPartition.Topic, e.TopicPartition.Partition, e.TopicPartition.Offset)
+				log.Printf("RAW MESSAGE CONSU?MED: %s", string(e.Value))
 
 				var event UserEventCreated
 
@@ -74,6 +75,8 @@ func (c *UserEventConsumer) StartEventConsumer(ctx context.Context, topic string
 
 					continue
 				}
+
+				log.Printf("MESSSAGE AFTERR UNMARSHALING: %+v", event)
 				//call database /create profile service
 				//database operation context
 				opCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
