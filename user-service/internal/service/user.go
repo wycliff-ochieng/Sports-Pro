@@ -59,11 +59,11 @@ var (
 
 func (u *UserService) CreateUserProfile(ctx context.Context, userID int, firstname string, lastname string, email string) error {
 
-	var event EventsData
+	//var event EventsData
 
 	query := `INSERT INTO user_profiles(userid,firstname,lastname,email) VALUES($1,$2,$3,$4)`
 
-	_, err := u.db.ExecContext(ctx, query, event.UserID, event.FirstName, event.LastName, event.Email)
+	_, err := u.db.ExecContext(ctx, query, userID, firstname, lastname, email)
 	if err != nil {
 		return fmt.Errorf("something happened: %v", err)
 	}
