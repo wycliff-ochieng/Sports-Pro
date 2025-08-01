@@ -32,7 +32,7 @@ func Load() (*Config, error) {
 	config.DBHost = getEnv("DB_HOST", "localhost")
 	config.DBPort = getEnvAsInt("DB_PORT", 5433)
 	config.DBPassword = getEnv("DB_PASSWORD", "admin123")
-	config.DBName = getEnv("DB_NAME", "User_Profiles")
+	config.DBName = getEnv("DB_NAME", "users")
 	config.DBUser = getEnv("DB_USER", "admin")
 	config.DBsslmode = getEnv("DB_SSLMODE", "disable")
 	//config.JWTSecret = getEnv("JWT_SECRET", "mydogiscalledrufus")
