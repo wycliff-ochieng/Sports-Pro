@@ -82,9 +82,9 @@ func (c *UserEventConsumer) StartEventConsumer(ctx context.Context, topic string
 				opCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				err := c.u.CreateUserProfile(opCtx, event.UserID, event.FirstName, event.LastName, event.Email)
 				if err != nil {
-					log.Fatalf("Error creating userprofile: %v", err)
+					log.Printf("Error creating userprofile: %v", err)
 				}
-				defer cancel()
+				cancel()
 
 				if err != nil {
 					c.l.Printf("some error when creating user profile %d:%v", event.UserID, err)
