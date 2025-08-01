@@ -28,7 +28,7 @@ func NewAuthService(db database.DBInterface) *AuthService {
 	}
 }
 
-func (s *AuthService) Register(ctx context.Context, id int, firstname string, lastname string, email string, password string) (*models.UserResponse, error) {
+func (s *AuthService) Register(ctx context.Context, firstname string, lastname string, email string, password string) (*models.UserResponse, error) {
 
 	var exists bool
 
@@ -40,19 +40,24 @@ func (s *AuthService) Register(ctx context.Context, id int, firstname string, la
 		return nil, ErrEmailExists //fmt.Errorf("email already exists")
 	}
 	//create user
-	user, err := models.NewUser(id, firstname, lastname, email, password)
+	user, err := models.NewUser(0, firstname, lastname, email, password)
 	if err != nil {
 		return nil, err
 	}
 
 	//insert into db
-	query := "INSERT INTO Users(userid,firstname,lastname,email,password,createdat,updatedat) VALUES($1,$2,$3,$4,$5,$6,$7)"
+	query := "INSERT INTO Users(firstname,lastname,email,password,createdat,updatedat) VALUES($1,$2,$3,$4,$5,$6) RETURNING userid"
 
-	_, err = s.db.ExecContext(ctx, query, user.ID, user.FirstName, user.LastName, user.Email, user.Password, user.CreatedAT, user.UpdatedAT)
+	var newUserID int
+
+	err = s.db.QueryRowContext(ctx, query, user.FirstName, user.LastName, user.Email, user.Password, user.CreatedAT, user.UpdatedAT).Scan(&newUserID)
 	if err != nil {
 		return nil, err
 	}
+
+	user.ID = newUserID
 	return &models.UserResponse{
+		UserID:    user.ID,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
 		Email:     user.Email,
