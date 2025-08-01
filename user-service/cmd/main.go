@@ -15,6 +15,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to load:%v", err)
 	}
-	server := api.NewAPIServer(":8000", cfg)
+	server := api.NewAPIServer(":9000", cfg)
 	server.Run()
 }
