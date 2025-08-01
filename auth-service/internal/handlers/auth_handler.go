@@ -18,7 +18,6 @@ type AuthHandler struct {
 }
 
 type RegisterReq struct {
-	ID        int
 	FirstName string
 	LastName  string
 	Email     string
@@ -37,6 +36,7 @@ type AuthenticationResponse struct {
 }
 
 type UserCreatedEvent struct {
+	UserID    int    `json:"userid"`
 	FirstName string `json:"firstname"`
 	LastName  string `json:"lastname"`
 	Email     string `json:"email"`
@@ -71,7 +71,7 @@ func (a *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := a.As.Register(ctx, RegisterUser.ID, RegisterUser.FirstName, RegisterUser.LastName, RegisterUser.Email, RegisterUser.Password)
+	user, err := a.As.Register(ctx, RegisterUser.FirstName, RegisterUser.LastName, RegisterUser.Email, RegisterUser.Password)
 	if err == service.ErrEmailExists {
 		http.Error(w, "ERROR: email already exists", http.StatusExpectationFailed)
 		return
@@ -85,6 +85,7 @@ func (a *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	//after successfull event creation ,create user created event
 
 	event := UserCreatedEvent{
+		UserID:    user.UserID,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
 		Email:     user.Email,
