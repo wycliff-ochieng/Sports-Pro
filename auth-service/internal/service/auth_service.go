@@ -5,10 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	auth "sports/authservice/internal/auth"
 	"sports/authservice/internal/database"
 	"sports/authservice/internal/models"
 	"time"
+
+	"github.com/google/uuid"
 	//"github.com/google/uuid"
 )
 
@@ -46,24 +49,32 @@ func (s *AuthService) Register(ctx context.Context, firstname string, lastname s
 	}
 
 	//insert into db
-	query := "INSERT INTO Users(firstname,lastname,email,password,createdat,updatedat) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,userid"
+	query := "INSERT INTO Users(firstname,lastname,email,password,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,userid"
 
 	role_query := "INSERT INTO user_roles(user_id,role_id) VALUES($1,$2)"
 
 	var newUserID int
+	var newUserUUID uuid.UUID
 
 	defaultRoleID := 1
+
+	err = s.db.QueryRowContext(ctx, query, user.FirstName, user.LastName, user.Email, user.Password, user.CreatedAT, user.UpdatedAT).Scan(&newUserID, &newUserUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("DEBUG: New user created with internal ID: %d and external UUID: %s", newUserID, newUserUUID)
+
+	user.ID = newUserID
+	user.UserID = newUserUUID
+
+	log.Printf("DEBUG: Attempting to assign role ID %d to user with internal ID %d", defaultRoleID, newUserID)
+
 	_, err = s.db.ExecContext(ctx, role_query, newUserID, defaultRoleID)
 	if err != nil {
 		return nil, err
 	}
 
-	err = s.db.QueryRowContext(ctx, query, user.FirstName, user.LastName, user.Email, user.Password, user.CreatedAT, user.UpdatedAT).Scan(&newUserID)
-	if err != nil {
-		return nil, err
-	}
-
-	user.ID = newUserID
 	return &models.UserResponse{
 		UserID:    user.UserID,
 		FirstName: user.FirstName,
