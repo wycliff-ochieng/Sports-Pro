@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"time"
 
-	//"github.com/google/uuid"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
 	ID          int       `json:"id"`
+	UserID      uuid.UUID `json:"userid"`
 	FirstName   string    `json:"firstname"`
 	LastName    string    `json:"lastname"`
 	Email       string    `json:"email"`
@@ -25,7 +26,8 @@ type Metadata struct {
 }
 
 type UserResponse struct {
-	UserID    int       `json:"userId"`
+	ID        int       `json:"id"`
+	UserID    uuid.UUID `json:"userId"`
 	FirstName string    `json:"firstname"`
 	LastName  string    `json:"lastname"`
 	Email     string    `json:"email"`
