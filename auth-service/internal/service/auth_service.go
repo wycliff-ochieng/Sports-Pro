@@ -46,9 +46,17 @@ func (s *AuthService) Register(ctx context.Context, firstname string, lastname s
 	}
 
 	//insert into db
-	query := "INSERT INTO Users(firstname,lastname,email,password,createdat,updatedat) VALUES($1,$2,$3,$4,$5,$6) RETURNING userid"
+	query := "INSERT INTO Users(firstname,lastname,email,password,createdat,updatedat) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,userid"
+
+	role_query := "INSERT INTO user_roles(user_id,role_id) VALUES($1,$2)"
 
 	var newUserID int
+
+	defaultRoleID := 1
+	_, err = s.db.ExecContext(ctx, role_query, newUserID, defaultRoleID)
+	if err != nil {
+		return nil, err
+	}
 
 	err = s.db.QueryRowContext(ctx, query, user.FirstName, user.LastName, user.Email, user.Password, user.CreatedAT, user.UpdatedAT).Scan(&newUserID)
 	if err != nil {
@@ -57,7 +65,7 @@ func (s *AuthService) Register(ctx context.Context, firstname string, lastname s
 
 	user.ID = newUserID
 	return &models.UserResponse{
-		UserID:    user.ID,
+		UserID:    user.UserID,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
 		Email:     user.Email,
@@ -91,9 +99,15 @@ func (s *AuthService) Login(ctx context.Context, email string, password string) 
 		return nil, nil, fmt.Errorf("passwords do no match: %v", err)
 	}
 
+	role, err := s.FetchUserRoles(ctx, user.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	//generate token pair
 	token, err := auth.GenerateTokenPair(
 		user.ID,
+		role,
 		user.Email,
 		string(auth.JWTSecret),     //jwtsecret
 		string(auth.RefreshSecret), //refreshsecret
@@ -109,4 +123,16 @@ func (s *AuthService) Login(ctx context.Context, email string, password string) 
 		Email:     user.Email,
 		CreatedAt: user.CreatedAT,
 	}, nil
+}
+
+func (s *AuthService) FetchUserRoles(ctx context.Context, userID int) ([]string, error) {
+	query := `SELECT name FROM roles WHERE user_id=$1`
+
+	var role []string
+
+	err := s.db.QueryRowContext(ctx, query).Scan(&role)
+	if err != nil {
+		return nil, err
+	}
+	return role, nil
 }
