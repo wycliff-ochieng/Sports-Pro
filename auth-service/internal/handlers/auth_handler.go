@@ -8,6 +8,8 @@ import (
 	internal "sports/authservice/internal/producer"
 	"sports/authservice/internal/service"
 	"time"
+
+	"github.com/google/uuid"
 	//"github.com/google/uuid"
 )
 
@@ -36,10 +38,10 @@ type AuthenticationResponse struct {
 }
 
 type UserCreatedEvent struct {
-	UserID    int    `json:"userid"`
-	FirstName string `json:"firstname"`
-	LastName  string `json:"lastname"`
-	Email     string `json:"email"`
+	UserID    uuid.UUID `json:"userid"`
+	FirstName string    `json:"firstname"`
+	LastName  string    `json:"lastname"`
+	Email     string    `json:"email"`
 }
 
 func NewAuthHandler(l *log.Logger, as *service.AuthService, p internal.KafkaProducer) *AuthHandler {
