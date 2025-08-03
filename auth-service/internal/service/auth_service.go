@@ -87,10 +87,11 @@ func (s *AuthService) Register(ctx context.Context, firstname string, lastname s
 func (s *AuthService) Login(ctx context.Context, email string, password string) (*auth.TokenPair, *models.UserResponse, error) {
 	var user models.User
 
-	query := `SELECT userid, email,password,firstname,lastname,createdat,updatedat FROM Users WHERE email = $1`
+	query := `SELECT id,userid, email,password,firstname,lastname,created_at,updated_at FROM Users WHERE email = $1`
 
 	err := s.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID,
+		&user.UserID,
 		&user.Email,
 		&user.Password,
 		&user.FirstName,
@@ -136,8 +137,9 @@ func (s *AuthService) Login(ctx context.Context, email string, password string) 
 	}, nil
 }
 
+/*
 func (s *AuthService) FetchUserRoles(ctx context.Context, userID int) ([]string, error) {
-	query := `SELECT name FROM roles WHERE user_id=$1`
+	query := `SELECT id,name FROM roles WHERE id=$1`
 
 	var role []string
 
@@ -146,4 +148,32 @@ func (s *AuthService) FetchUserRoles(ctx context.Context, userID int) ([]string,
 		return nil, err
 	}
 	return role, nil
+}
+*/
+
+func (s *AuthService) FetchUserRoles(ctx context.Context, userID int) ([]string, error) {
+	query := `SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id=$1`
+
+	rows, err := s.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var roles []string
+
+	for rows.Next() {
+		var rolename string
+		if err := rows.Scan(&rolename); err != nil {
+			return nil, fmt.Errorf("something happened when fetching user roles,%v", err)
+		}
+
+		roles = append(roles, rolename)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating through the rows:%v", err)
+	}
+	return roles, err
 }
