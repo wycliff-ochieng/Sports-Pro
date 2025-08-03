@@ -14,7 +14,7 @@ import (
 type DBInterface interface {
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	BeginTx(ctx context.Context,opt *sql.TxOptions) (*sql.Tx, error)
+	BeginTx(ctx context.Context, opt *sql.TxOptions) (*sql.Tx, error)
 }
 
 type Postgres struct {
@@ -44,7 +44,7 @@ func Newpostgres(cfg *config.Config) (*Postgres, error) {
 		log.Fatalf("error setting dialect:%v", err)
 	}
 
-	if err := goose.Up(db, "./internal/database/migrations"); err != nil {
+	if err := goose.Up(db, "internal/database/migrations"); err != nil {
 		log.Fatalf("error spinning up goose:%v", err)
 	}
 
@@ -58,4 +58,8 @@ func (p *Postgres) QueryRowContext(ctx context.Context, query string, args ...in
 
 func (p *Postgres) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
 	return p.db.ExecContext(ctx, query, args...)
+}
+
+func (p *Postgres) BeginTx(ctx context.Context, opt *sql.TxOptions) (*sql.Tx, error) {
+	return p.db.BeginTx(ctx, opt)
 }
