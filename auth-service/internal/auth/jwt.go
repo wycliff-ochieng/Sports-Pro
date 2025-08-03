@@ -8,8 +8,9 @@ import (
 )
 
 type Claims struct {
-	ID    int
-	Email string
+	ID    int      `json:"id"`
+	Roles []string `json:"roles"`
+	Email string   `json:"email"`
 	jwt.RegisteredClaims
 }
 
@@ -21,11 +22,12 @@ type TokenPair struct {
 var JWTSecret = []byte("mydogsnameisrufus")
 var RefreshSecret = []byte("myotherdogsnameistommy")
 
-func GenerateToken(id int, email string, jwtSecret string, expiry time.Duration) (string, error) {
+func GenerateToken(id int, roles []string, email string, jwtSecret string, expiry time.Duration) (string, error) {
 	now := time.Now()
 
 	claims := &Claims{
 		ID:    id,
+		Roles: roles,
 		Email: email,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(expiry)),
@@ -59,12 +61,12 @@ func ValidateToken(tokenString string, jwtSecret string) (*Claims, error) {
 	return nil, fmt.Errorf("invalid token")
 }
 
-func GenerateTokenPair(userID int, email string, jwtSecret string, refreshSecret string, jwtExpiry time.Duration, refreshExpiry time.Duration) (*TokenPair, error) {
-	accessToken, err := GenerateToken(userID, email, jwtSecret, jwtExpiry)
+func GenerateTokenPair(userID int, roles []string, email string, jwtSecret string, refreshSecret string, jwtExpiry time.Duration, refreshExpiry time.Duration) (*TokenPair, error) {
+	accessToken, err := GenerateToken(userID, roles, email, jwtSecret, jwtExpiry)
 	if err != nil {
 		return nil, err
 	}
-	refreshToken, err := GenerateToken(userID, email, refreshSecret, refreshExpiry)
+	refreshToken, err := GenerateToken(userID, roles, email, refreshSecret, refreshExpiry)
 	if err != nil {
 		return nil, err
 	}
@@ -72,4 +74,11 @@ func GenerateTokenPair(userID int, email string, jwtSecret string, refreshSecret
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
+}
+
+func ExtractBearerToken(authHeader string) string {
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		return authHeader[7:]
+	}
+	return ""
 }
