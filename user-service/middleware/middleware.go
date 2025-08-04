@@ -51,7 +51,17 @@ func UserMiddlware(jwtSecret string) func(next http.Handler) http.Handler {
 				ctx := context.WithValue(r.Context(), UserUUIDKey, claims.UserUUID)
 				ctx = context.WithValue(r.Context(), RolesdKey, claims.Roles)
 				next.ServeHTTP(w, r.WithContext(ctx))
+			} else {
+				http.Error(w, "could not parse token claims", http.StatusFailedDependency)
 			}
 		})
 	}
+}
+
+func GetUserUUIDFromContext(ctx context.Context) (string, error) {
+	userUUID, ok := ctx.Value(UserUUIDKey).(string)
+	if !ok || userUUID == "" {
+		return "", errors.New("UUID not found for this user")
+	}
+	return userUUID, nil
 }
