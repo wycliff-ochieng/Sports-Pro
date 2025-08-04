@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	//"github.com/aws/aws-sdk-go-v2/aws/middleware/private/metrics/middleware"
+	"github/wycliff-ochieng/middleware"
 	"github.com/wycliff-ochieng/internal/service"
 )
 
@@ -24,7 +26,21 @@ func NewUserHandler(l *log.Logger, p service.Profile) *UserHandler {
 
 func (u *UserHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 
-	u.l.Println(">>>Getting user profile by iD handler ")
+	u.l.Println(">>>Getting user profile by UUiD handler ")
+
+	userUUID, err := middleware.GetUserUUIDFromContext(r.Context())
+	if err != nil {
+		http.Error(w, "cant get user UUID from context", http.StatusExpectationFailed)
+		return
+	}
+
+	//call service layer 
+	profile, err := 
+
+	//respond with profile data
+
+
+
 }
 
 func (u *UserHandler) UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
