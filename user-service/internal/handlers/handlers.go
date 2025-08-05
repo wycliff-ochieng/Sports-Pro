@@ -8,8 +8,9 @@ import (
 	"time"
 
 	//"github.com/aws/aws-sdk-go-v2/aws/middleware/private/metrics/middleware"
-	"github/wycliff-ochieng/middleware"
+
 	"github.com/wycliff-ochieng/internal/service"
+	"github.com/wycliff-ochieng/middleware"
 )
 
 type UserHandler struct {
@@ -24,7 +25,7 @@ func NewUserHandler(l *log.Logger, p service.Profile) *UserHandler {
 	}
 }
 
-func (u *UserHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
+func (u *UserHandler) GetUserProfileByUUID(w http.ResponseWriter, r *http.Request) {
 
 	u.l.Println(">>>Getting user profile by UUiD handler ")
 
@@ -34,12 +35,19 @@ func (u *UserHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//call service layer 
-	profile, err := 
+	//call service layer
+	profile, err := u.p.GetUserProfileByUUID(r.Context(), userUUID)
+	if err != nil {
+		http.Error(w, "cant get profile from the database", http.StatusExpectationFailed)
+		return
+	}
 
 	//respond with profile data
+	w.Header().Add("Context-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&profile)
 
-
+	return
 
 }
 
@@ -69,5 +77,6 @@ func (u *UserHandler) UpdateUserProfile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Add("Content-Type", "Application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&profile)
 }
