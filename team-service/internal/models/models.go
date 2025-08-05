@@ -11,15 +11,15 @@ type Team struct {
 	Name        string    `json:"name"`
 	Sport       string    `json:"sport"`
 	Description string    `json:"description"`
-	Createdat   time.Time `json::"createdat"`
+	Createdat   time.Time `json:"createdat"`
 	Updatedat   time.Time `json:"updatedat"`
 }
 
 type TeamMembers struct {
-	TeamID   uuid.UUID
-	UserID   uuid.UUID
-	Role     string
-	Joinedat time.Time
+	TeamID   uuid.UUID `json:"teamid"`
+	UserID   uuid.UUID `json:"userid"`
+	Role     string    `json:"role"`
+	Joinedat time.Time `json:"joinedat"`
 }
 
 func NewTeam(teamID uuid.UUID, name string, sport string, description string, createdat time.Time, updatedat time.Time) *Team {
