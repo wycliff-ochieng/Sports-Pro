@@ -10,6 +10,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/wycliff-ochieng/internal/database"
 	"github.com/wycliff-ochieng/internal/models"
 	internal "github.com/wycliff-ochieng/internal/producer"
@@ -17,6 +18,7 @@ import (
 
 type Profile interface {
 	GetProfileByID(ctx context.Context, tx *sql.Tx, userID int) (*models.Profile, error)
+	GetUserProfileByUUID(ctx context.Context, userID string) (*models.Profile, error)
 	UpdateUserProfile(ctx context.Context, userID int, firstname, lastname, email string, updatedat time.Time) (*models.Profile, error)
 }
 
@@ -57,7 +59,7 @@ var (
 	ErrUpdateFailed = errors.New("failed to update user profile")
 )
 
-func (u *UserService) CreateUserProfile(ctx context.Context, userID int, firstname string, lastname string, email string) error {
+func (u *UserService) CreateUserProfile(ctx context.Context, userID uuid.UUID, firstname string, lastname string, email string) error {
 
 	//var event EventsData
 
@@ -187,4 +189,20 @@ func (u *UserService) GetProfileByIDRepo(ctx context.Context, userID int) (*mode
 		u.l.Println("no user with that IDin the database")
 	}
 	return &profile, nil
+}
+
+func (u *UserService) GetUserProfileByUUID(ctx context.Context, userUUID string) (*models.Profile, error) {
+
+	var profile models.Profile
+
+	query := `SELECT id,firstname,lastname,email,createdat,updatedat FROM user_profiles WHERE id=$1`
+
+	err := u.db.QueryRowContext(ctx, query, userUUID).Scan(&profile.UserID, &profile.Firstname, &profile.Lastname, &profile.Email, &profile.Createdat, profile.Updatedat)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &profile, err
 }
