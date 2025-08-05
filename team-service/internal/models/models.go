@@ -7,12 +7,12 @@ import (
 )
 
 type Team struct {
-	TeamID      uuid.UUID
-	Name        string
-	Sport       string
-	Description string
-	Createdat   time.Time
-	Updatedat   time.Time
+	TeamID      uuid.UUID `json:"temaid"`
+	Name        string    `json:"name"`
+	Sport       string    `json:"sport"`
+	Description string    `json:"description"`
+	Createdat   time.Time `json::"createdat"`
+	Updatedat   time.Time `json:"updatedat"`
 }
 
 type TeamMembers struct {
