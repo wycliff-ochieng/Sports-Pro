@@ -5,6 +5,9 @@ import (
 	"github/wycliff-ochieng/internal/database"
 	"github/wycliff-ochieng/internal/models"
 	"log"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 type TeamService struct {
@@ -15,11 +18,11 @@ func NewTeamService(db database.DBInterface) *TeamService {
 	return &TeamService{db}
 }
 
-func (ts *TeamService) CreateTeam(ctx context.Context, name string, sport string, description string) (*models.Team, error) {
+func (ts *TeamService) CreateTeam(ctx context.Context, teamID uuid.UUID, name string, sport string, description string, createdat, updatedat time.Time) (*models.Team, error) {
 
 	var team *models.Team
 
-	team, err := models.NewTeam(name, sport, description)
+	team, err := models.NewTeam(teamID, name, sport, description, createdat, updatedat)
 	if err != nil {
 		log.Fatalf("error creating new team")
 	}
@@ -32,8 +35,16 @@ func (ts *TeamService) CreateTeam(ctx context.Context, name string, sport string
 	}
 
 	return &models.Team{
+		TeamID:      teamID,
 		Name:        name,
 		Sport:       sport,
 		Description: description,
+		Createdat:   createdat,
 	}, nil
+}
+
+func (ts *TeamService) GetMyTeams(ctx context.Context, userID uuid.UUID) (*[]models.Team, error) {
+
+	//get userUUID from the context
+	return nil, nil
 }
