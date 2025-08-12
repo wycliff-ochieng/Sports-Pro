@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type TeamHandler struct {
@@ -15,9 +17,12 @@ type TeamHandler struct {
 }
 
 type createTeamReq struct {
+	TeamID      uuid.UUID
 	Name        string
 	Sport       string
 	Description string
+	Createdat   time.Time
+	Updatedat   time.Time
 }
 
 func NewTeamHandler(l *log.Logger, t *service.TeamService) *TeamHandler {
@@ -43,7 +48,7 @@ func (h *TeamHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	team, err := h.t.CreateTeam(ctx, create.Name, create.Sport, create.Description)
+	team, err := h.t.CreateTeam(ctx, create.TeamID, create.Name, create.Sport, create.Description, create.Createdat, create.Updatedat)
 	if err != nil {
 		h.l.Println("somethig is wrong in the service transaction")
 		http.Error(w, "FAILED:Error creating team service", http.StatusFailedDependency)
