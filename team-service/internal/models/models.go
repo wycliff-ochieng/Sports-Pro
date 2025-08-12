@@ -22,11 +22,14 @@ type TeamMembers struct {
 	Joinedat time.Time `json:"joinedat"`
 }
 
-func NewTeam(name string, sport string, description string) (*Team, error) {
+func NewTeam(teamID uuid.UUID, name string, sport string, description string, createdat, updatedat time.Time) (*Team, error) {
 	return &Team{
+		TeamID:      uuid.New(),
 		Name:        name,
 		Sport:       sport,
 		Description: description,
+		Createdat:   time.Now().UTC(),
+		Updatedat:   time.Now().UTC(),
 	}, nil
 }
 
