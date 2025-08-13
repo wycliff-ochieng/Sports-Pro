@@ -10,7 +10,7 @@ import (
 	//"github.com/wycliff-ochieng/common_packages"
 
 	"github.com/google/uuid"
-	middleware "github.com/wycliff-ochieng/common_packages"
+	//middleware "github.com/wycliff-ochieng/common_packages"
 )
 
 type TeamService struct {
@@ -48,7 +48,11 @@ func (ts *TeamService) CreateTeam(ctx context.Context, teamID uuid.UUID, name st
 
 func (ts *TeamService) GetMyTeams(ctx context.Context, userID uuid.UUID) (*[]models.Team, error) {
 
-	//get userUUID from the context
-	userUUID, err := middleware.GetUUIDFromContext()
+	query := `SELECT t.id,t.name,t.sport,t.description,t.createdat,tm.joined FROM teams t LEFT JOIN team_members WHERE t.id = tm.team_id`
+
+	rows,err :=  ts.db.QueryContext(ctx, query).Scan(&)
+	if err != nil{
+		log.Fatalf("failed to fetch teams for %s bacause of %s", err, userID)
+	}
 	return nil, nil
 }
