@@ -13,9 +13,11 @@ type ContextKey string
 
 const UserUUIDKey ContextKey = "userUUID"
 const RolesdKey ContextKey = "roles"
+const UserIDKey ContextKey = "userID"
 
 type Claims struct {
-	UserUUID string   `json:"sub"`
+	UserUUID string   `json:"sub"`    //primary key, unique identifier
+	UserID   int      `json:"userID"` // auto increment figure in the db
 	Roles    []string `json:"roles"`
 	jwt.RegisteredClaims
 }
@@ -50,6 +52,7 @@ func UserMiddlware(jwtSecret string) func(next http.Handler) http.Handler {
 			if claims, ok := token.Claims.(*Claims); ok {
 				ctx := context.WithValue(r.Context(), UserUUIDKey, claims.UserUUID)
 				ctx = context.WithValue(r.Context(), RolesdKey, claims.Roles)
+				ctx = context.WithValue(r.Context(), UserIDKey, claims.UserID)
 				next.ServeHTTP(w, r.WithContext(ctx))
 			} else {
 				http.Error(w, "could not parse token claims", http.StatusFailedDependency)
@@ -64,4 +67,12 @@ func GetUserUUIDFromContext(ctx context.Context) (string, error) {
 		return "", errors.New("UUID not found for this user")
 	}
 	return userUUID, nil
+}
+
+func GetUserIdFromcontext(ctx context.Context) (int, error) {
+	userID, ok := ctx.Value(UserIDKey).(int)
+	if ok || userID == 0 {
+		return 0, errors.New("userID not found for this user")
+	}
+	return userID, nil
 }
