@@ -81,11 +81,23 @@ func (h *TeamHandler) GetTeams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	myTeams, err := h.t.GetMyTeams(ctx, userUUIID)
+	myTeams, err := h.t.GetMyTeams(ctx, userUUID)
 	if err != nil {
 		http.Error(w, "Error while fetching teams for this user", http.StatusNotFound)
 		return
 	}
+
+	//marshalling the data from database -> change to json
+	type MyTeams struct {
+		TeamID      uuid.UUID
+		Name        string
+		Sport       string
+		Description string
+		CreatedAt   time.Time
+		JoinedAT    time.Time
+		Role        string
+	}
+	json.NewEncoder(w).Encode(&myTeams)
 	return
 }
 
