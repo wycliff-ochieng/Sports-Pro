@@ -7,7 +7,10 @@ import (
 	"log"
 	"time"
 
+	//"github.com/wycliff-ochieng/common_packages"
+
 	"github.com/google/uuid"
+	middleware "github.com/wycliff-ochieng/common_packages"
 )
 
 type TeamService struct {
@@ -46,5 +49,6 @@ func (ts *TeamService) CreateTeam(ctx context.Context, teamID uuid.UUID, name st
 func (ts *TeamService) GetMyTeams(ctx context.Context, userID uuid.UUID) (*[]models.Team, error) {
 
 	//get userUUID from the context
+	userUUID, err := middleware.GetUUIDFromContext()
 	return nil, nil
 }
