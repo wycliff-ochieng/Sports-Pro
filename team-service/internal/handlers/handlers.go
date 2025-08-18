@@ -53,7 +53,7 @@ func (h *TeamHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 	team, err := h.t.CreateTeam(ctx, create.TeamID, create.Name, create.Sport, create.Description, create.Createdat, create.Updatedat)
 	if err != nil {
 		h.l.Println("somethig is wrong in the service transaction")
-		http.Error(w, "FAILED:Error creating team service", http.StatusFailedDependency)
+		http.Error(w, "FAILED:Error creating team service", http.StatusExpectationFailed)
 		return
 	}
 
@@ -97,8 +97,8 @@ func (h *TeamHandler) GetTeams(w http.ResponseWriter, r *http.Request) {
 		JoinedAT    time.Time
 		Role        string
 	}
+	// TODO :: finish this tomorrow
 	json.NewEncoder(w).Encode(&myTeams)
-	return
 }
 
 // GET :: api/teams/{teamID} - get a detailed public profile for a single team
