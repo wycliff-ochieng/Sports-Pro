@@ -46,13 +46,39 @@ func (ts *TeamService) CreateTeam(ctx context.Context, teamID uuid.UUID, name st
 	}, nil
 }
 
-func (ts *TeamService) GetMyTeams(ctx context.Context, userID uuid.UUID) (*[]models.Team, error) {
+func (ts *TeamService) GetMyTeams(ctx context.Context, userID uuid.UUID) (*[]models.TeamInfo, error) {
 
-	query := `SELECT t.id,t.name,t.sport,t.description,t.createdat,tm.joined FROM teams t LEFT JOIN team_members WHERE t.id = tm.team_id`
+	var teams []models.TeamInfo
+	//	var members models.TeamMembers
 
-	rows,err :=  ts.db.QueryContext(ctx, query).Scan(&)
-	if err != nil{
+	query := `SELECT t.id,t.name,t.sport,t.description,t.createdat,tm.Role,tm.joined FROM teams t LEFT JOIN team_members ON tm.user_id = $1 WHERE t.id = tm.team_id`
+
+	rows, err := ts.db.QueryContext(ctx, query, userID)
+	if err != nil {
 		log.Fatalf("failed to fetch teams for %s bacause of %s", err, userID)
 	}
-	return nil, nil
+	defer rows.Close()
+
+	for rows.Next() {
+		//var myTeams models.Team
+		var myTeams models.TeamInfo
+
+		err := rows.Scan(
+			&myTeams.TeamID,
+			&myTeams.Name,
+			&myTeams.Sport,
+			&myTeams.Role,
+			&myTeams.Description,
+			&myTeams.Updatedat,
+			&myTeams.Joinedat,
+		)
+		if err != nil {
+			log.Fatalf("Failed to loop through all teams : %v", err)
+		}
+		teams = append(teams, myTeams)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return &teams, nil
 }
