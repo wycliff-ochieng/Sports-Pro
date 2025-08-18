@@ -88,7 +88,7 @@ func (h *TeamHandler) GetTeams(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//marshalling the data from database -> change to json
-	type MyTeams struct {
+	/*type MyTeams struct {
 		TeamID      uuid.UUID
 		Name        string
 		Sport       string
@@ -96,8 +96,10 @@ func (h *TeamHandler) GetTeams(w http.ResponseWriter, r *http.Request) {
 		CreatedAt   time.Time
 		JoinedAT    time.Time
 		Role        string
-	}
+	}*/
 	// TODO :: finish this tomorrow
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&myTeams)
 }
 
