@@ -87,17 +87,6 @@ func (h *TeamHandler) GetTeams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//marshalling the data from database -> change to json
-	/*type MyTeams struct {
-		TeamID      uuid.UUID
-		Name        string
-		Sport       string
-		Description string
-		CreatedAt   time.Time
-		JoinedAT    time.Time
-		Role        string
-	}*/
-	// TODO :: finish this tomorrow
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&myTeams)
@@ -105,5 +94,27 @@ func (h *TeamHandler) GetTeams(w http.ResponseWriter, r *http.Request) {
 
 // GET :: api/teams/{teamID} - get a detailed public profile for a single team
 func (h *TeamHandler) GetTeamsByID(w http.ResponseWriter, r *http.Request) {
+	h.l.Println("info: getting team details for this specific team id")
+
+	ctx := r.Context()
+
+	userID, err := middleware.GetUserIDFromContext(ctx)
+	if err != nil {
+		http.Error(w, "Error: userID validation failed", http.StatusExpectationFailed)
+		return
+	}
+
+	roles, err := middleware.GetUserRoleFromContext(ctx)
+	if err != nil {
+		http.Error(w, "Error: no role found for this user", http.StatusNotFound)
+		return
+	}
+
+	if roles == "COACH" || roles == "MANAGER" {
+		team, err := h.t.GetTeamByID(userID)
+		if err != nil {
+			http.Error(w, "Error: ")
+		}
+	}
 	return
 }
