@@ -7,8 +7,6 @@ import (
 	"log"
 	"time"
 
-	//"github.com/wycliff-ochieng/common_packages"
-
 	"github.com/google/uuid"
 	//middleware "github.com/wycliff-ochieng/common_packages"
 )
@@ -81,4 +79,72 @@ func (ts *TeamService) GetMyTeams(ctx context.Context, userID uuid.UUID) (*[]mod
 		return nil, err
 	}
 	return &teams, nil
+}
+
+func (ts *TeamService) GetTeamByID(ctx context.Context, teamID uuid.UUID, userID uuid.UUID) ([]*models.Team, error) {
+	var AllTeams []models.Team
+	query := `SELECT * FROM teams WHERE user_id=$1`
+	rows, err := ts.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var allTeams *models.Team
+
+		err := rows.Scan(
+			allTeams.Name,
+			allTeams.Sport,
+			allTeams.Description,
+			allTeams.TeamID,
+			allTeams.Createdat,
+			allTeams.Updatedat,
+		)
+		if err != nil {
+			log.Fatalf("Error: scnning rows issue due to: %v", err)
+		}
+		AllTeams = append(AllTeams, allTeams)
+	}
+	return &AllTeams, err
+}
+
+func (ts *TeamService) IsTeamMember(ctx context.Context, userID uuid.UUID, teamID uuid.UUID) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM team_members WHERE user_id = $1 AND team_id = $2)`
+
+	err := ts.db.QueryRowContext(ctx, query).Scan(&exists)
+	if err != nil {
+		log.Fatalf("Error: query row transaction failed due to: %v", err)
+	}
+	return exists, nil
+}
+
+func (ts *TeamService) GetTeamsMembers(ctx context.Context, teamID uuid.UUID) ([]*models.TeamMembers, error) {
+	var teamMembers []models.TeamMembers
+	query := `SELECT * FROM team_members WHERE team_id=$1`
+	rows, err := ts.db.QueryContext(ctx, query)
+	if err != nil {
+		log.Fatalf("Error: issue with fetchiing team members: %v", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var members models.TeamMembers
+
+		err := rows.Scan(
+			members.TeamID,
+			members.UserID,
+			members.Role,
+			members.Joinedat,
+		)
+		if err != nil {
+			log.Fatalf("Error scanning rows: %v", err)
+		}
+		teamMembers = append(teamMembers, members)
+	}
+	if err := rows.Err(); err != nil {
+		log.Fatalf("Team has no memebers :%v", err)
+	}
+	return &teamMembers, nil
 }
