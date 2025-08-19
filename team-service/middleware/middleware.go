@@ -68,6 +68,14 @@ func GetUserUUIDFromContext(ctx context.Context) (uuid.UUID, error) {
 	return userUUID, nil
 }
 
+func GetUserRoleFromContext(ctx context.Context) (string, error) {
+	role, ok := ctx.Value(RolesdKey).(string)
+	if !ok || role == "" {
+		return "", errors.New("error: No roles for this user")
+	}
+	return role, nil
+}
+
 func GetUserIDFromContext(ctx context.Context) (int, error) {
 	userID, ok := ctx.Value(UserIDKey).(int)
 	if !ok || userID == 0 {
