@@ -81,8 +81,8 @@ func (ts *TeamService) GetMyTeams(ctx context.Context, userID uuid.UUID) (*[]mod
 	return &teams, nil
 }
 
-func (ts *TeamService) GetTeamByID(ctx context.Context, teamID uuid.UUID, userID uuid.UUID) ([]*models.Team, error) {
-	var AllTeams []models.Team
+func (ts *TeamService) GetTeamByID(ctx context.Context, teamID string, userID uuid.UUID) ([]*models.Team, error) {
+	var AllTeams []*models.Team
 	query := `SELECT * FROM teams WHERE user_id=$1`
 	rows, err := ts.db.QueryContext(ctx, query)
 	if err != nil {
@@ -91,22 +91,22 @@ func (ts *TeamService) GetTeamByID(ctx context.Context, teamID uuid.UUID, userID
 	defer rows.Close()
 
 	for rows.Next() {
-		var allTeams *models.Team
+		var allTeams models.Team
 
 		err := rows.Scan(
-			allTeams.Name,
-			allTeams.Sport,
-			allTeams.Description,
-			allTeams.TeamID,
-			allTeams.Createdat,
-			allTeams.Updatedat,
+			&allTeams.Name,
+			&allTeams.Sport,
+			&allTeams.Description,
+			&allTeams.TeamID,
+			&allTeams.Createdat,
+			&allTeams.Updatedat,
 		)
 		if err != nil {
 			log.Fatalf("Error: scnning rows issue due to: %v", err)
 		}
-		AllTeams = append(AllTeams, allTeams)
+		AllTeams = append(AllTeams, &allTeams)
 	}
-	return &AllTeams, err
+	return AllTeams, err
 }
 
 func (ts *TeamService) IsTeamMember(ctx context.Context, userID uuid.UUID, teamID uuid.UUID) (bool, error) {
@@ -121,7 +121,7 @@ func (ts *TeamService) IsTeamMember(ctx context.Context, userID uuid.UUID, teamI
 }
 
 func (ts *TeamService) GetTeamsMembers(ctx context.Context, teamID uuid.UUID) ([]*models.TeamMembers, error) {
-	var teamMembers []models.TeamMembers
+	var teamMembers []*models.TeamMembers
 	query := `SELECT * FROM team_members WHERE team_id=$1`
 	rows, err := ts.db.QueryContext(ctx, query)
 	if err != nil {
@@ -133,18 +133,18 @@ func (ts *TeamService) GetTeamsMembers(ctx context.Context, teamID uuid.UUID) ([
 		var members models.TeamMembers
 
 		err := rows.Scan(
-			members.TeamID,
-			members.UserID,
-			members.Role,
-			members.Joinedat,
+			&members.TeamID,
+			&members.UserID,
+			&members.Role,
+			&members.Joinedat,
 		)
 		if err != nil {
 			log.Fatalf("Error scanning rows: %v", err)
 		}
-		teamMembers = append(teamMembers, members)
+		teamMembers = append(teamMembers, &members)
 	}
 	if err := rows.Err(); err != nil {
 		log.Fatalf("Team has no memebers :%v", err)
 	}
-	return &teamMembers, nil
+	return teamMembers, nil
 }
