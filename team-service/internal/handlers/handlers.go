@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 )
 
 type TeamHandler struct {
@@ -98,7 +99,11 @@ func (h *TeamHandler) GetTeamsByID(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	userID, err := middleware.GetUserIDFromContext(ctx)
+	vars := mux.Vars(r)
+
+	teamID := vars["team_id"]
+
+	userID, err := middleware.GetUserUUIDFromContext(ctx)
 	if err != nil {
 		http.Error(w, "Error: userID validation failed", http.StatusExpectationFailed)
 		return
@@ -111,10 +116,19 @@ func (h *TeamHandler) GetTeamsByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if roles == "COACH" || roles == "MANAGER" {
-		team, err := h.t.GetTeamByID(userID)
+		team, err := h.t.GetTeamByID(ctx, teamID, userID)
 		if err != nil {
-			http.Error(w, "Error: ")
+			http.Error(w, "Error: ", http.StatusBadRequest)
+			return
 		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(&team)
+	} else {
+		log.Fatal("Not allowed to view all the teams")
 	}
-	return
+}
+
+func (h *TeamHandler) GetTeamsMembers(w http.ResponseWriter, r *http.Request) {
+	h.l.Println("Fetching all members for a give teams")
 }
