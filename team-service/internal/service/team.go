@@ -2,14 +2,19 @@ package service
 
 import (
 	"context"
+	"errors"
 	"github/wycliff-ochieng/internal/database"
 	"github/wycliff-ochieng/internal/models"
+	"github/wycliff-ochieng/middleware"
 	"log"
 	"time"
 
 	"github.com/google/uuid"
 	//middleware "github.com/wycliff-ochieng/common_packages"
 )
+
+var ErrForbidden = errors.New("user not allowed here")
+var ErrNotFound = errors.New("bot found/ does not exist")
 
 type TeamService struct {
 	db database.DBInterface
@@ -109,7 +114,7 @@ func (ts *TeamService) GetTeamByID(ctx context.Context, teamID string, userID uu
 	return AllTeams, err
 }
 
-func (ts *TeamService) IsTeamMember(ctx context.Context, userID uuid.UUID, teamID uuid.UUID) (bool, error) {
+func (ts *TeamService) IsTeamMember(ctx context.Context, userID uuid.UUID, teamID string) (bool, error) {
 	var exists bool
 	query := `SELECT EXISTS(SELECT 1 FROM team_members WHERE user_id = $1 AND team_id = $2)`
 
@@ -147,4 +152,22 @@ func (ts *TeamService) GetTeamsMembers(ctx context.Context, teamID uuid.UUID) ([
 		log.Fatalf("Team has no memebers :%v", err)
 	}
 	return teamMembers, nil
+}
+
+func (ts *TeamService) GetTeamDetails(ctx context.Context, userID uuid.UUID) {
+
+	//is the user a member - > authorization check
+
+	//get the all teams details for this teamID
+
+	//fetch all members uuid and their roles
+}
+
+func (ts *TeamService) UpdateTeamDetails(ctx context.Context, name string, description string) (*models.TeamInfo, error) {
+	//check roles ->is the user a coach /manager of that team -> RBAC
+	roles, err := middleware.GetUserRoleFromContext(ctx)
+	if err != nil {
+		return nil, err //log.Fatalf("FATAL. NOT ALLOWED: No role found for this user: %v", err)
+	}
+	return nil, nil
 }
