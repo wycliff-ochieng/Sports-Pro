@@ -16,6 +16,7 @@ type DBInterface interface {
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	BeginTx(ctx context.Context, opt *sql.TxOptions) (*sql.Tx, error)
 }
 
 type PostgresDB struct {
@@ -66,4 +67,8 @@ func (p *PostgresDB) QueryContext(ctx context.Context, query string, args ...int
 }
 func (p *PostgresDB) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
 	return p.db.ExecContext(ctx, query, args...)
+}
+
+func (p *PostgresDB) BeginTx(ctx context.Context, opt *sql.TxOptions) (*sql.Tx, error) {
+	return p.db.BeginTx(ctx, opt)
 }
