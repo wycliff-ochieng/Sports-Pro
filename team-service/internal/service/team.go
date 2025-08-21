@@ -5,7 +5,6 @@ import (
 	"errors"
 	"github/wycliff-ochieng/internal/database"
 	"github/wycliff-ochieng/internal/models"
-	"github/wycliff-ochieng/middleware"
 	"log"
 	"time"
 
@@ -14,7 +13,7 @@ import (
 )
 
 var ErrForbidden = errors.New("user not allowed here")
-var ErrNotFound = errors.New("bot found/ does not exist")
+var ErrNotFound = errors.New("team not found/ does not exist")
 
 type TeamService struct {
 	db database.DBInterface
@@ -49,6 +48,7 @@ func (ts *TeamService) CreateTeam(ctx context.Context, teamID uuid.UUID, name st
 	}, nil
 }
 
+// teams for a single user
 func (ts *TeamService) GetMyTeams(ctx context.Context, userID uuid.UUID) (*[]models.TeamInfo, error) {
 
 	var teams []models.TeamInfo
@@ -86,6 +86,7 @@ func (ts *TeamService) GetMyTeams(ctx context.Context, userID uuid.UUID) (*[]mod
 	return &teams, nil
 }
 
+// teams for a single user  ->  hange this to repo service
 func (ts *TeamService) GetTeamByID(ctx context.Context, teamID string, userID uuid.UUID) ([]*models.Team, error) {
 	var AllTeams []*models.Team
 	query := `SELECT * FROM teams WHERE user_id=$1`
@@ -114,6 +115,7 @@ func (ts *TeamService) GetTeamByID(ctx context.Context, teamID string, userID uu
 	return AllTeams, err
 }
 
+// repo service
 func (ts *TeamService) IsTeamMember(ctx context.Context, userID uuid.UUID, teamID string) (bool, error) {
 	var exists bool
 	query := `SELECT EXISTS(SELECT 1 FROM team_members WHERE user_id = $1 AND team_id = $2)`
@@ -125,6 +127,7 @@ func (ts *TeamService) IsTeamMember(ctx context.Context, userID uuid.UUID, teamI
 	return exists, nil
 }
 
+// repo service
 func (ts *TeamService) GetTeamsMembers(ctx context.Context, teamID uuid.UUID) ([]*models.TeamMembers, error) {
 	var teamMembers []*models.TeamMembers
 	query := `SELECT * FROM team_members WHERE team_id=$1`
@@ -165,9 +168,22 @@ func (ts *TeamService) GetTeamDetails(ctx context.Context, userID uuid.UUID) {
 
 func (ts *TeamService) UpdateTeamDetails(ctx context.Context, name string, description string) (*models.TeamInfo, error) {
 	//check roles ->is the user a coach /manager of that team -> RBAC
-	roles, err := middleware.GetUserRoleFromContext(ctx)
+	//roles, err := middleware.GetUserRoleFromContext(ctx)
+	//if err != nil {
+	//	return nil, err //log.Fatalf("FATAL. NOT ALLOWED: No role found for this user: %v", err)
+	//}
+
+	txs, err := ts.db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, err //log.Fatalf("FATAL. NOT ALLOWED: No role found for this user: %v", err)
+		return nil, err
 	}
+
+	defer txs.Rollback()
+
+	//check if team exists
+	team, err := ts.db.GetTeamByID()
+
+	//
+
 	return nil, nil
 }
