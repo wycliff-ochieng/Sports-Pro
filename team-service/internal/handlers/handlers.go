@@ -170,4 +170,12 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 	}
 
 	team, err := h.t.UpdateTeamDetails(ctx, update.Name, update.Description)
+	if err != nil {
+		http.Error(w, "update team service transaction error", http.StatusFailedDependency)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&team)
 }
