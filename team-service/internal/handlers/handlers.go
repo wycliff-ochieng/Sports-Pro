@@ -19,12 +19,17 @@ type TeamHandler struct {
 }
 
 type createTeamReq struct {
-	TeamID      uuid.UUID
-	Name        string
-	Sport       string
-	Description string
-	Createdat   time.Time
-	Updatedat   time.Time
+	TeamID      uuid.UUID `json:"teamid"`
+	Name        string    `json:"name"`
+	Sport       string    `json:"sport"`
+	Description string    `json:"description"`
+	Createdat   time.Time `json:"createdat"`
+	Updatedat   time.Time `json:"updatedat"`
+}
+
+type updateTeamDetailsReq struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 func NewTeamHandler(l *log.Logger, t *service.TeamService) *TeamHandler {
@@ -109,26 +114,60 @@ func (h *TeamHandler) GetTeamsByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	roles, err := middleware.GetUserRoleFromContext(ctx)
+	//	roles, err := middleware.GetUserRoleFromContext(ctx)
+	//	if err != nil {
+	//		http.Error(w, "Error: no role found for this user", http.StatusNotFound)
+	//		return
+	//	}
+
+	/*	isMember,err := h.t.IsTeamMember(ctx,userID,teamID)
+		if err != nil{
+			return false,err
+		}
+		if !isMember{
+			return nil,http.StatusNotFound
+		}*/
+	team, err := h.t.GetTeamByID(ctx, teamID, userID) //change team id back to UUID not string
 	if err != nil {
-		http.Error(w, "Error: no role found for this user", http.StatusNotFound)
+		http.Error(w, "Error: ", http.StatusBadRequest)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&team)
 
-	if roles == "COACH" || roles == "MANAGER" {
-		team, err := h.t.GetTeamByID(ctx, teamID, userID)
-		if err != nil {
-			http.Error(w, "Error: ", http.StatusBadRequest)
-			return
+	/*
+		if roles == "COACH" || roles == "MANAGER" {
+			team, err := h.t.GetTeamByID(ctx, teamID, userID)
+			if err != nil {
+				http.Error(w, "Error: ", http.StatusBadRequest)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(&team)
+		} else {
+
+			log.Fatal("Not allowed to view all the teams")
 		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(&team)
-	} else {
-		log.Fatal("Not allowed to view all the teams")
-	}
+	*/
 }
 
 func (h *TeamHandler) GetTeamsMembers(w http.ResponseWriter, r *http.Request) {
 	h.l.Println("Fetching all members for a give teams")
+}
+
+func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
+	h.l.Println("Updating team information")
+
+	ctx := r.Context()
+
+	var update *updateTeamDetailsReq
+
+	err := json.NewDecoder(r.Body).Decode(&update)
+	if err != nil {
+		log.Fatalf("Error decoding %v", err)
+	}
+
+	team, err := h.t.UpdateTeamDetails(ctx, update.Name, update.Description)
 }
