@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"github/wycliff-ochieng/internal/database"
 	"github/wycliff-ochieng/internal/models"
@@ -178,7 +179,7 @@ func (ts *TeamService) GetTeamDetails(ctx context.Context, userID uuid.UUID) {
 	//fetch all members uuid and their roles -> getTeamMmebers
 }
 
-func (ts *TeamService) UpdateTeamDetails(ctx context.Context, name string, description string) (*models.TeamInfo, error) {
+func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, reqUserID uuid.UUID, updateData updateTeamReq) (*models.Team, error) {
 	//check roles ->is the user a coach /manager of that team -> RBAC
 	//roles, err := middleware.GetUserRoleFromContext(ctx)
 	//if err != nil {
@@ -193,10 +194,37 @@ func (ts *TeamService) UpdateTeamDetails(ctx context.Context, name string, descr
 	defer txs.Rollback()
 
 	//check if team exists
-	isTeam, err := ts.db.isTeam(ctx, teamID)
-	//
+	role, err := ts.GetRoleForUser(ctx, teamID, reqUserID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Println("user is not a memeber of this team")
+		}
+		return nil, err
+	}
+	//check roles
+	isUserAuthorized := role == "COACH" || role == "MANAGER"
+	if !isUserAuthorized {
+		log.Fatal("ERROR : user is not Allowed to edit")
+	}
 
-	return nil, nil
+	//if they  are authorized: Database write operation
+	updatedTeam, err := ts.UpdateTeam(ctx, teamID, updateData)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNotFound
+		}
+		log.Fatal("Fialed to update team deatils")
+		return nil, err
+	}
+
+	//commit the transactions
+	if err := txs.Commit(); err != nil {
+		log.Fatalf("Failed to commit the transaction, rollback wikk be initiated: %v", err)
+	}
+
+	//TODO LATER :: produce the updateTeam Event to a Kafka topic
+
+	return updatedTeam, nil
 }
 
 /*func (ts *TeamService) isTeam(ctx context.Context, teamID uuid.UUID) (bool, error) {
