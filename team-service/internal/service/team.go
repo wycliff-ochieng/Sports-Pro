@@ -179,7 +179,7 @@ func (ts *TeamService) GetTeamDetails(ctx context.Context, userID uuid.UUID) {
 	//fetch all members uuid and their roles -> getTeamMmebers
 }
 
-func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, reqUserID uuid.UUID, updateData updateTeamReq) (*models.Team, error) {
+func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, reqUserID uuid.UUID, updateData models.UpdateTeamReq) (*models.Team, error) {
 	//check roles ->is the user a coach /manager of that team -> RBAC
 	//roles, err := middleware.GetUserRoleFromContext(ctx)
 	//if err != nil {
@@ -239,7 +239,7 @@ func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, 
 }
 */
 
-func (ts *TeamService) UpdateTeam(ctx context.Context, teamID uuid.UUID, updateData updateTeamReq) (*models.Team, error) {
+func (ts *TeamService) UpdateTeam(ctx context.Context, teamID uuid.UUID, updateData models.UpdateTeamReq) (*models.Team, error) {
 	var team models.Team
 	query := `UPDATE teams SET name=$1, description=$, updateat=Now() WHERE team_id=$3
 	RETURNING name,sport,description,createdat,updatedat`
@@ -261,4 +261,51 @@ func (ts *TeamService) GetRoleForUser(ctx context.Context, teamID uuid.UUID, use
 		return "", err
 	}
 	return role, nil
+}
+
+// Add a memeber to a team -> POST
+func (ts *TeamService) AddTeamMember(ctx context.Context, teamID uuid.UUID, reqUserID uuid.UUID, addMember models.AddMemberReq) (*models.TeamMembers, error) {
+
+	txs, err := ts.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	defer txs.Rollback()
+
+	//query team memebr to get role -> Auhtorization check
+	role, err := ts.GetRoleForUser(ctx, teamID, reqUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	isAllowed := role == "COACH" || role == "MANAGER"
+	if !isAllowed {
+		return nil, ErrForbidden
+	}
+
+	//check if user being added to the team exists in the system
+	//Will need to make a gRPC call to user-service
+	//TODO:: - > implementing gRPC communication
+
+	//i've assumed the user exists in the system
+	addedMember, err := ts.AddMember()
+	return nil, nil
+}
+
+func (ts *TeamService) AddMember(ctx context.Context, teamID uuid.UUID, addedMember models.AddMemberReq) (*models.TeamMembers, error) {
+	var member models.TeamMembers
+	query := `INSERT INTO team_members(team_id,role,joinedat,user_id,) VALUES($1,$2,$3,$4)`
+
+	_, err := ts.db.ExecContext(ctx, query, member.TeamID, member.Role, member.Joinedat, member.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.TeamMembers{
+		TeamID:   teamID,
+		Role:     addedMember.Role,
+		Joinedat: addedMember.Joinedat,
+		UserID:   addedMember.UserID,
+	}, nil
 }
