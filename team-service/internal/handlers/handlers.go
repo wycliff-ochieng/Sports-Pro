@@ -192,3 +192,37 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&team)
 }
+
+// POST :: add members to a team -> RBAC(coach /manager role)
+func (h *TeamHandler) AddTeamMember(w http.ResponseWriter, r *http.Request) {
+	h.l.Println("Adding Members to a Team initiated successfuly")
+
+	vars := mux.Vars(r)
+
+	ctx := r.Context()
+
+	teamID := vars["team_id"] //convert this teamID to UUId - > was to write some parse function to convert this
+
+	//userID from context
+
+	userID, err := middleware.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		log.Fatalf("UserID not found in context:%v", err)
+		return
+	}
+	role, err := middleware.GetUserRoleFromContext(ctx)
+	if err != nil {
+		http.Error(w, "Error : issue with roles for this user", http.StatusBadRequest)
+		return
+	}
+
+	//validate if userID id a valid UUUID format ,role is a valid type
+	if userID == uuid.Nil {
+		log.Fatal("Empyt userID, Please input User UUID")
+	}
+
+	var addMemberReq models.AddMemberReq
+
+	//call service layer =
+	addedMember, err := h.t.AddTeamMember(ctx, teamID, userID, addMembe)
+}
