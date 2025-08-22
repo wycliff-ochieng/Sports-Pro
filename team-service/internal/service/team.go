@@ -211,14 +211,26 @@ func (ts *TeamService) UpdateTeamDetails(ctx context.Context, name string, descr
 }
 */
 
-func (ts *TeamService) UpdateTeam(ctx context.Context, teamID uuid.UUID) (*models.Team, error) {
-	var team *models.Team
+func (ts *TeamService) UpdateTeam(ctx context.Context, teamID uuid.UUID, updateData updateTeamReq) (*models.Team, error) {
+	var team models.Team
 	query := `UPDATE teams SET name=$1, description=$, updateat=Now() WHERE team_id=$3
 	RETURNING name,sport,description,createdat,updatedat`
 
-	err := ts.db.QueryRowContext(ctx, query).Scan(&team.TeamID, &team.Name, &team.Sport, &team.Description, &team.Createdat, &team.Updatedat)
+	err := ts.db.QueryRowContext(ctx, query, updateData.Name, updateData.Description, teamID).Scan(&team.TeamID, &team.Name, &team.Sport, &team.Description, &team.Createdat, &team.Updatedat)
 	if err != nil {
 		return nil, err
 	}
-	return team, nil
+	return &team, nil
+}
+
+func (ts *TeamService) GetRoleForUser(ctx context.Context, teamID uuid.UUID, userID uuid.UUID) (string, error) {
+	var role string
+
+	query := `SELECT FROM team_members WHERE team_id = $1 AND user_id=$2`
+
+	err := ts.db.QueryRowContext(ctx, query).Scan(&role)
+	if err != nil {
+		return "", err
+	}
+	return role, nil
 }
