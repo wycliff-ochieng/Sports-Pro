@@ -32,6 +32,20 @@ type TeamInfo struct {
 	Joinedat    time.Time
 }
 
+type UpdateTeamReq struct {
+	TeamID      uuid.UUID `json:"teamid"`
+	Name        string    `json:"name"`
+	Sport       string    `json:"sport"`
+	Description string    `json:"description"`
+	Createdat   time.Time `json:"createdat"`
+	Updatedat   time.Time `json:"updatedat"`
+}
+
+type AddMemberReq struct {
+	UserID uuid.UUID `json:"userid"`
+	Role   string    `json:"role"`
+}
+
 func NewTeam(teamID uuid.UUID, name string, sport string, description string, createdat, updatedat time.Time) (*Team, error) {
 	return &Team{
 		TeamID:      uuid.New(),
@@ -51,3 +65,7 @@ func NewTeamMembers(teamID uuid.UUID, userID uuid.UUID, role string, joinedat ti
 		Joinedat: joinedat,
 	}
 }
+
+//func NewTeamInfo() ([]*TeamInfo,error){
+//	return []&TeamInfo{},nil
+//}
