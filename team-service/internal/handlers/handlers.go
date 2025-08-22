@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"github/wycliff-ochieng/internal/models"
 	"github/wycliff-ochieng/internal/service"
 	"github/wycliff-ochieng/middleware"
 	"log"
@@ -155,21 +156,33 @@ func (h *TeamHandler) GetTeamsByID(w http.ResponseWriter, r *http.Request) {
 
 func (h *TeamHandler) GetTeamsMembers(w http.ResponseWriter, r *http.Request) {
 	h.l.Println("Fetching all members for a give teams")
+	//must be a member of that team
 }
 
 func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 	h.l.Println("Updating team information")
 
 	ctx := r.Context()
+	vars := mux.Vars(r)
 
-	var update *updateTeamDetailsReq
+	teamID := vars["teamID"] // parse this team ID to UUID
 
-	err := json.NewDecoder(r.Body).Decode(&update)
+	userID, err := middleware.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		http.Error(w, "Error fetching UUID from context", http.StatusNotFound)
+		return
+	}
+
+	var update models.UpdateTeamReq
+	//get userID from context
+	//get teamID from url
+
+	err = json.NewDecoder(r.Body).Decode(&update)
 	if err != nil {
 		log.Fatalf("Error decoding %v", err)
 	}
 
-	team, err := h.t.UpdateTeamDetails(ctx, update.Name, update.Description)
+	team, err := h.t.UpdateTeamDetails(ctx, teamID, userID, update)
 	if err != nil {
 		http.Error(w, "update team service transaction error", http.StatusFailedDependency)
 		return
