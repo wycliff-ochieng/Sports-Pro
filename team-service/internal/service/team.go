@@ -19,6 +19,15 @@ type TeamService struct {
 	db database.DBInterface
 }
 
+type updateTeamReq struct {
+	TeamID      uuid.UUID `json:"teamid"`
+	Name        string    `json:"name"`
+	Sport       string    `json:"sport"`
+	Description string    `json:"description"`
+	Createdat   time.Time `json:"createdat"`
+	Updatedat   time.Time `json:"updatedat"`
+}
+
 func NewTeamService(db database.DBInterface) *TeamService {
 	return &TeamService{db}
 }
@@ -86,7 +95,7 @@ func (ts *TeamService) GetMyTeams(ctx context.Context, userID uuid.UUID) (*[]mod
 	return &teams, nil
 }
 
-// teams for a single user  ->  hange this to repo service
+// teams for a single user  ->  change this to repo service
 func (ts *TeamService) GetTeamByID(ctx context.Context, teamID string, userID uuid.UUID) ([]*models.Team, error) {
 	var AllTeams []*models.Team
 	query := `SELECT * FROM teams WHERE user_id=$1`
@@ -157,13 +166,16 @@ func (ts *TeamService) GetTeamsMembers(ctx context.Context, teamID uuid.UUID) ([
 	return teamMembers, nil
 }
 
+// get team ID/ UUID
+func (ts *TeamService) GetTeamByUUID(tcx context.Context) {}
+
 func (ts *TeamService) GetTeamDetails(ctx context.Context, userID uuid.UUID) {
 
-	//is the user a member - > authorization check
+	//is the user a member - > authorization check -> are you team member
 
-	//get the all teams details for this teamID
+	//get the all teams details for this teamID -> get teamsByID
 
-	//fetch all members uuid and their roles
+	//fetch all members uuid and their roles -> getTeamMmebers
 }
 
 func (ts *TeamService) UpdateTeamDetails(ctx context.Context, name string, description string) (*models.TeamInfo, error) {
@@ -181,9 +193,32 @@ func (ts *TeamService) UpdateTeamDetails(ctx context.Context, name string, descr
 	defer txs.Rollback()
 
 	//check if team exists
-	team, err := ts.db.GetTeamByID()
-
+	isTeam, err := ts.db.isTeam(ctx, teamID)
 	//
 
 	return nil, nil
+}
+
+/*func (ts *TeamService) isTeam(ctx context.Context, teamID uuid.UUID) (bool, error) {
+	var exists bool
+
+	query := `SELECT EXISTS(SELECT 1 FROM team WHERE team_id = $1)`
+	err := ts.db.QueryRowContext(ctx, query).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, err
+}
+*/
+
+func (ts *TeamService) UpdateTeam(ctx context.Context, teamID uuid.UUID) (*models.Team, error) {
+	var team *models.Team
+	query := `UPDATE teams SET name=$1, description=$, updateat=Now() WHERE team_id=$3
+	RETURNING name,sport,description,createdat,updatedat`
+
+	err := ts.db.QueryRowContext(ctx, query).Scan(&team.TeamID, &team.Name, &team.Sport, &team.Description, &team.Createdat, &team.Updatedat)
+	if err != nil {
+		return nil, err
+	}
+	return team, nil
 }
