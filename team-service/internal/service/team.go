@@ -289,8 +289,17 @@ func (ts *TeamService) AddTeamMember(ctx context.Context, teamID uuid.UUID, reqU
 	//TODO:: - > implementing gRPC communication
 
 	//i've assumed the user exists in the system
-	addedMember, err := ts.AddMember()
-	return nil, nil
+	addedMember, err := ts.AddMember(ctx, teamID, addMember)
+	if err != nil {
+		log.Fatal("Error: Failed to add Member to team due to: ")
+		return nil, err
+	}
+
+	if err := txs.Commit(); err != nil {
+		log.Fatal("Error commit the transaction due to :")
+		return nil, err
+	}
+	return addedMember, nil
 }
 
 func (ts *TeamService) AddMember(ctx context.Context, teamID uuid.UUID, addedMember models.AddMemberReq) (*models.TeamMembers, error) {
