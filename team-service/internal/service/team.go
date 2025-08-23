@@ -96,15 +96,15 @@ func (ts *TeamService) GetMyTeams(ctx context.Context, userID uuid.UUID) (*[]mod
 	return &teams, nil
 }
 
-// teams for a single user  ->  change this to repo service
-func (ts *TeamService) GetTeamByID(ctx context.Context, teamID string, userID uuid.UUID) ([]*models.Team, error) {
-	var AllTeams []*models.Team
-	query := `SELECT * FROM teams WHERE user_id=$1`
-	rows, err := ts.db.QueryContext(ctx, query)
+// teams for a single user  ->  change this to repo service - > team details
+func (ts *TeamService) GetTeamByID(ctx context.Context, teamID uuid.UUID) (*models.Team, error) {
+	var AllTeams models.Team
+	query := `SELECT * FROM teams WHERE team_id=$1`
+	err := ts.db.QueryRowContext(ctx, query, teamID).Scan(&AllTeams)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	/*defer rows.Close()
 
 	for rows.Next() {
 		var allTeams models.Team
@@ -121,12 +121,12 @@ func (ts *TeamService) GetTeamByID(ctx context.Context, teamID string, userID uu
 			log.Fatalf("Error: scnning rows issue due to: %v", err)
 		}
 		AllTeams = append(AllTeams, &allTeams)
-	}
-	return AllTeams, err
+	}*/
+	return &AllTeams, err
 }
 
 // repo service
-func (ts *TeamService) IsTeamMember(ctx context.Context, userID uuid.UUID, teamID string) (bool, error) {
+func (ts *TeamService) IsTeamMember(ctx context.Context, userID uuid.UUID, teamID uuid.UUID) (bool, error) {
 	var exists bool
 	query := `SELECT EXISTS(SELECT 1 FROM team_members WHERE user_id = $1 AND team_id = $2)`
 
@@ -170,9 +170,40 @@ func (ts *TeamService) GetTeamsMembers(ctx context.Context, teamID uuid.UUID) ([
 // get team ID/ UUID
 func (ts *TeamService) GetTeamByUUID(tcx context.Context) {}
 
-func (ts *TeamService) GetTeamDetails(ctx context.Context, userID uuid.UUID) {
+func (ts *TeamService) GetTeamDetails(ctx context.Context, reqUserID uuid.UUID, teamID uuid.UUID) (*models.TeamInfo, error) {
 
 	//is the user a member - > authorization check -> are you team member
+	isTeamMember, err := ts.IsTeamMember(ctx, reqUserID, teamID)
+	if err != nil {
+		log.Fatalf("Error cecking membership: %v", err)
+		return nil, err
+	}
+
+	if !isTeamMember {
+		log.Fatal("Not Team Member :Not allowed to get team details")
+		return nil, ErrForbidden
+	}
+
+	team, err := ts.GetTeamByID(ctx, teamID)
+	if err != nil {
+		return nil, err
+	}
+
+	allTeamMembers, err := ts.GetTeamsMembers(ctx, teamID)
+	if err != nil {
+		log.Fatal("No team members")
+		return nil, err
+	}
+
+	if len(allTeamMembers) == 0 {
+		return &models.TeamInfo{
+			TeamID:      team.TeamID,
+			Name:        team.Name,
+			Sport:       team.Sport,
+			Description: team.Description,
+			Updatedat:   team.Createdat,
+		}, nil
+	}
 
 	//get the all teams details for this teamID -> get teamsByID
 
