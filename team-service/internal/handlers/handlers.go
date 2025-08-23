@@ -165,7 +165,13 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	vars := mux.Vars(r)
 
-	teamID := vars["teamID"] // parse this team ID to UUID
+	teamIDStr := vars["teamID"] // parse this team ID to UUID
+
+	teamID, err := uuid.Parse(teamIDStr)
+	if err != nil {
+		http.Error(w, "ERROR: failed parsing this to uuid", http.StatusExpectationFailed)
+		return
+	}
 
 	userID, err := middleware.GetUserUUIDFromContext(ctx)
 	if err != nil {
@@ -201,7 +207,13 @@ func (h *TeamHandler) AddTeamMember(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	teamID := vars["team_id"] //convert this teamID to UUId - > was to write some parse function to convert this
+	teamIDStr := vars["team_id"] //convert this teamID to UUId - > was to write some parse function to convert this
+
+	teamID, err := uuid.Parse(teamIDStr)
+	if err != nil {
+		http.Error(w, "failed to chnage teamID to uuid", http.StatusFailedDependency)
+		return
+	}
 
 	//userID from context
 
@@ -224,5 +236,14 @@ func (h *TeamHandler) AddTeamMember(w http.ResponseWriter, r *http.Request) {
 	var addMemberReq models.AddMemberReq
 
 	//call service layer =
-	addedMember, err := h.t.AddTeamMember(ctx, teamID, userID, addMembe)
+	addedMember, err := h.t.AddTeamMember(ctx, teamID, userID, addMemberReq)
+	if err != nil {
+		http.Error(w, "ERROR: something wrong with addTeamMember subscriptio", http.StatusExpectationFailed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&addedMember)
+
 }
