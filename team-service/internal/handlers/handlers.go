@@ -107,7 +107,9 @@ func (h *TeamHandler) GetTeamsByID(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 
-	teamID := vars["team_id"]
+	teamIDStr := vars["team_id"]
+
+	teamID, err := uuid.Parse(teamIDStr)
 
 	userID, err := middleware.GetUserUUIDFromContext(ctx)
 	if err != nil {
@@ -222,11 +224,11 @@ func (h *TeamHandler) AddTeamMember(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("UserID not found in context:%v", err)
 		return
 	}
-	role, err := middleware.GetUserRoleFromContext(ctx)
+	/*role, err := middleware.GetUserRoleFromContext(ctx)
 	if err != nil {
 		http.Error(w, "Error : issue with roles for this user", http.StatusBadRequest)
 		return
-	}
+	}*/
 
 	//validate if userID id a valid UUUID format ,role is a valid type
 	if userID == uuid.Nil {
