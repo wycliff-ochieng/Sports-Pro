@@ -32,6 +32,14 @@ type TeamInfo struct {
 	Joinedat    time.Time
 }
 
+type TeamDetailsInfo struct {
+	TeamID      uuid.UUID
+	Name        string
+	Sport       string
+	Description string
+	Members     []TeamMembers
+}
+
 type UpdateTeamReq struct {
 	TeamID      uuid.UUID `json:"teamid"`
 	Name        string    `json:"name"`
