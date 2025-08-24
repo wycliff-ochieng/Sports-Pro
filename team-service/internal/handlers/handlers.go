@@ -130,7 +130,7 @@ func (h *TeamHandler) GetTeamsByID(w http.ResponseWriter, r *http.Request) {
 		if !isMember{
 			return nil,http.StatusNotFound
 		}*/
-	team, err := h.t.GetTeamByID(ctx, teamID, userID) //change team id back to UUID not string
+	team, err := h.t.GetTeamDetails(ctx, teamID, userID) //change team id back to UUID not string
 	if err != nil {
 		http.Error(w, "Error: ", http.StatusBadRequest)
 		return
@@ -156,6 +156,7 @@ func (h *TeamHandler) GetTeamsByID(w http.ResponseWriter, r *http.Request) {
 	*/
 }
 
+// GET :: api/teamid/members -> get a list/roster of members of a certain team
 func (h *TeamHandler) GetTeamsMembers(w http.ResponseWriter, r *http.Request) {
 	h.l.Println("Fetching all members for a give teams")
 	//must be a member of that team
