@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package UserServiceV1;
+
+option go_package = "github.com/wycliff-ochieng/grpc"; //where the request /response code generated will be stored;
+
+service TeamServiceRPC{
+    rpc GetUserProfile(GetUserRequest) returns(GetUserResponse) {}
+    rpc GetUserProfiles(GetUserRequest) returns (GetUserResponse) {}
+    
+}
+
+message GetUserRequest{
+    repeated string userid = 1;
+}
+
+message UserProfile{
+    string userid = 1;
+    string name = 2;
+    string sport =3 ;
+    string description = 4;
+    string role = 5;
+    string joinedat = 6;
+}
+
+
+
+message GetUserResponse{}
