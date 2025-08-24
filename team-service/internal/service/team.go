@@ -184,6 +184,7 @@ func (ts *TeamService) GetTeamDetails(ctx context.Context, reqUserID uuid.UUID, 
 		return nil, ErrForbidden
 	}
 
+	//get the all teams details for this teamID -> get teamsByID
 	team, err := ts.GetTeamByID(ctx, teamID)
 	if err != nil {
 		return nil, err
@@ -205,9 +206,12 @@ func (ts *TeamService) GetTeamDetails(ctx context.Context, reqUserID uuid.UUID, 
 		}, nil
 	}
 
-	//get the all teams details for this teamID -> get teamsByID
-
 	//fetch all members uuid and their roles -> getTeamMmebers
+	var memberUUID []string
+	for _, member := range allTeamMembers {
+		//mbrUUID,err := uuid.Parse(member.UserID)
+		memberUUID = append(memberUUID, member.UserID.String())
+	}
 }
 
 func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, reqUserID uuid.UUID, updateData models.UpdateTeamReq) (*models.Team, error) {
