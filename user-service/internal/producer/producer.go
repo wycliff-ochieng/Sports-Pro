@@ -42,7 +42,7 @@ func (c *UpdateUser) PublishUserUpdate(ctx context.Context, userData interface{}
 		Value: data,
 	}, c.deliverych)
 	log.Println(">>successfully published event to the queue")
-	fmt.Println("Published event onto the queue")
+	fmt.Println("Published updateuserprofile event onto the queue")
 	return fmt.Errorf("failed to publish user creation data: %s", err)
 }
 
