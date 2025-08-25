@@ -7,14 +7,15 @@ import (
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/google/uuid"
 	"github.com/wycliff-ochieng/internal/service"
 )
 
 type UserEventCreated struct {
-	UserID    int    `json:"userId"`
-	FirstName string `json:"firstname"`
-	LastName  string `json:"lastname"`
-	Email     string `json:"email"`
+	UserID    uuid.UUID `json:"userId"`
+	FirstName string    `json:"firstname"`
+	LastName  string    `json:"lastname"`
+	Email     string    `json:"email"`
 }
 
 type UserEventConsumer struct {
