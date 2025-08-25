@@ -12,7 +12,7 @@ type Profile struct {
 	Updatedat time.Time
 }
 
-func NewProfile(userid int, firstname, lastname string, email string,createdat time.Time, updatedat time.Time) *Profile {
+func NewProfile(userid int, firstname, lastname string, email string, createdat time.Time, updatedat time.Time) *Profile {
 	return &Profile{
 		UserID:    userid,
 		Firstname: firstname,
