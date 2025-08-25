@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/wycliff-ochieng/sports-proto/user_grpc/user_proto"
+
 	"github.com/gorilla/mux"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -34,7 +36,18 @@ func (s *APIServer) Run() {
 		log.Printf("error configuring db: %v", err)
 	}
 
-	ts := service.NewTeamService(db)
+	userServiceAddress := "50051" // "user-service-svc:50051"  -> K8s name and grpc port
+
+	conn, err := grpc.NewClient(userServiceAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("ERROR setting up client: %v", err)
+	}
+
+	defer conn.Close()
+
+	userClient := user_proto.NewUserServiceRPCClient(conn)
+
+	ts := service.NewTeamService(db, userClient)
 
 	th := handlers.NewTeamHandler(l, ts)
 
@@ -54,17 +67,17 @@ func (s *APIServer) Run() {
 	getTeamsByID.HandleFunc("/api/team/{team_id}", th.GetTeamsByID)
 
 	//set up grpc client
-	userServiceAddress := "50051" // "user-service-svc:50051"  -> K8s name and grpc port
+	//userServiceAddress := "50051" // "user-service-svc:50051"  -> K8s name and grpc port
 
-	conn, err := grpc.NewClient(userServiceAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatalf("ERROR setting up client: %v", err)
-	}
+	//conn, err := grpc.NewClient(userServiceAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	//if err != nil {
+	//	log.Fatalf("ERROR setting up client: %v", err)
+	//}
 
-	defer conn.Close()
+	//defer conn.Close()
 
 	//create new rpc cleint from the connection
-	userClient := user_proto.NewU
+	//userClient := user_proto.NewUserServiceRPCClient(conn)
 
 	if err := http.ListenAndServe(s.addrr, router); err != nil {
 		log.Fatalf("Error setting up router: %v", err)
