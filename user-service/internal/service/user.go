@@ -19,7 +19,7 @@ import (
 type Profile interface {
 	GetProfileByID(ctx context.Context, tx *sql.Tx, userID int) (*models.Profile, error)
 	GetUserProfileByUUID(ctx context.Context, userID string) (*models.Profile, error)
-	UpdateUserProfile(ctx context.Context, userID int, firstname, lastname, email string, updatedat time.Time) (*models.Profile, error)
+	UpdateUserProfile(ctx context.Context, userID uuid.UUID, firstname, lastname, email string, updatedat time.Time) (*models.Profile, error)
 }
 
 type UserService struct {
@@ -29,14 +29,14 @@ type UserService struct {
 }
 
 type EventsData struct {
-	UserID    int    `json:"userid"`
-	FirstName string `json:"firstname"`
-	LastName  string `json:"lastname"`
-	Email     string `json:"email"`
+	UserID    uuid.UUID `json:"userid"`
+	FirstName string    `json:"firstname"`
+	LastName  string    `json:"lastname"`
+	Email     string    `json:"email"`
 }
 
 type UpdatePofileReq struct {
-	UserID    int
+	UserID    uuid.UUID
 	Firstname string
 	Lastname  string
 	//avatar    string
@@ -89,11 +89,13 @@ func (u *UserService) GetProfileByID(ctx context.Context, tx *sql.Tx, userID int
 	}, nil
 }
 
-func (u *UserService) UpdateUserProfile(ctx context.Context, userID int, firstname string, lastname string, email string, updatedat time.Time) (*models.Profile, error) {
+func (u *UserService) UpdateUserProfile(ctx context.Context, userID uuid.UUID, firstname string, lastname string, email string, updatedat time.Time) (*models.Profile, error) {
 
 	u.l.Printf("UPDATING USER PROFILE UNDERWAY FOR:%v", userID)
 
 	var updateReq UpdatePofileReq
+
+	//userID, err := uuid.Parse(userID.String())
 
 	// Begin transaction
 	transaction, err := u.db.BeginTx(ctx, nil)
@@ -105,7 +107,7 @@ func (u *UserService) UpdateUserProfile(ctx context.Context, userID int, firstna
 	defer transaction.Rollback()
 
 	//check if user exists, call get user by ID
-	existingProfile, err := u.GetProfileByID(ctx, transaction, userID)
+	existingProfile, err := u.GetUserProfileByUUID(ctx /*transaction,*/, userID.String())
 	if err != nil {
 		u.l.Printf("no user: %d with that ID: %v", userID, err)
 		return nil, ErrUpdateFailed
@@ -205,4 +207,37 @@ func (u *UserService) GetUserProfileByUUID(ctx context.Context, userUUID string)
 		return nil, err
 	}
 	return &profile, err
+}
+
+func (u *UserService) GetUserProfilesByUUIDs(ctx context.Context, userUUID []string) ([]*models.Profile, error) {
+	var profiles []*models.Profile
+
+	query := `SELECT id FROM user_profiles`
+
+	rows, err := u.db.QueryContext(ctx, query)
+	if err != nil {
+		//handle error
+		return nil, fmt.Errorf("error querying fetching profiles from DB: %v", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var profile *models.Profile
+
+		err := rows.Scan(
+			&profile.UserID,
+			&profile.Firstname,
+			&profile.Lastname,
+			&profile.Email,
+			&profile.Createdat,
+			&profile.Updatedat,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("Error Scanning through profile lists:%v", err)
+		}
+
+		profiles = append(profiles, profile)
+
+	}
+	return profiles, nil
 }
