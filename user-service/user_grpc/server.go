@@ -35,5 +35,5 @@ func (s *Server) GetUserProfiles(ctx context.Context, req *grpc.GetUserRequest) 
 		}
 	}
 
-	return nil, nil
+	return &grpc.GetUserProfileResponse{Profiles: grpcProfile}, nil
 }
