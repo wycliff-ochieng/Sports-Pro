@@ -10,6 +10,8 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type APIServer struct {
@@ -36,12 +38,33 @@ func (s *APIServer) Run() {
 
 	th := handlers.NewTeamHandler(l, ts)
 
+	//instatiate middleware
+
 	//set up router
 	router := mux.NewRouter()
 
 	//routes
 	createTeam := router.Methods("POST").Subrouter()
 	createTeam.HandleFunc("/api/teams", th.CreateTeam)
+
+	getTeams := router.Methods("GET").Subrouter()
+	getTeams.HandleFunc("/api/get/teams", th.GetTeams)
+
+	getTeamsByID := router.Methods("GET").Subrouter()
+	getTeamsByID.HandleFunc("/api/team/{team_id}", th.GetTeamsByID)
+
+	//set up grpc client
+	userServiceAddress := "50051" // "user-service-svc:50051"  -> K8s name and grpc port
+
+	conn, err := grpc.NewClient(userServiceAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("ERROR setting up client: %v", err)
+	}
+
+	defer conn.Close()
+
+	//create new rpc cleint from the connection
+	userClient := user_proto.NewU
 
 	if err := http.ListenAndServe(s.addrr, router); err != nil {
 		log.Fatalf("Error setting up router: %v", err)
