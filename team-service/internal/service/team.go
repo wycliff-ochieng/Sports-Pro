@@ -255,18 +255,24 @@ func (ts *TeamService) GetTeamDetails(ctx context.Context, reqUserID uuid.UUID, 
 		}
 
 		UserUUID, err := uuid.Parse(profile.Userid)
-		if err != nil{
-			return nil,err
+		if err != nil {
+			return nil, err
 		}
 
+		//finalResponse.Members = append(finalResponse.Members, models.TeamDetailsInfo{
+		//	TeamID:   team.TeamID,
+		//	UserID:   UserUUID,
+		//	Role:     profile.Email,
+		//	Joinedat: profile.Createdat,
+		//})
 		finalResponse.Members = append(finalResponse.Members, models.TeamMembers{
-			TeamID: profile.,
-			UserID: UserUUID,
-			Role:
-			Joinedat
+			TeamID:   member.TeamID,
+			UserID:   UserUUID,
+			Role:     member.Role,
+			Joinedat: member.Joinedat,
 		})
 	}
-	return nil,nil
+	return &finalResponse, nil
 }
 
 func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, reqUserID uuid.UUID, updateData models.UpdateTeamReq) (*models.Team, error) {
