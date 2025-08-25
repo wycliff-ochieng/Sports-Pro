@@ -3,11 +3,15 @@ package api
 import (
 	"context"
 	"log"
+	"net"
+
 	//"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"google.golang.org/grpc"
 
 	"github.com/gorilla/mux"
 	"github.com/wycliff-ochieng/internal/config"
@@ -16,13 +20,14 @@ import (
 	"github.com/wycliff-ochieng/internal/handlers"
 	internal "github.com/wycliff-ochieng/internal/producer"
 	"github.com/wycliff-ochieng/internal/service"
+	rpc "github.com/wycliff-ochieng/user_grpc"
+	"github.com/wycliff-ochieng/user_grpc/user_proto"
 )
 
 type APIServer struct {
 	addr string
 	cfg  *config.Config
 }
-
 
 func NewAPIServer(addr string, cfg *config.Config) *APIServer {
 	return &APIServer{
@@ -38,7 +43,7 @@ func (s *APIServer) Run() {
 	topic := "profiles"
 
 	jwtSecret := s.cfg.JWTSecret
-	if jwtSecret == ""{
+	if jwtSecret == "" {
 		log.Printf("no secret found")
 	}
 
@@ -83,8 +88,36 @@ func (s *APIServer) Run() {
 	updateUser := router.Methods("PUT").Subrouter()
 	updateUser.HandleFunc("/update", uh.UpdateUserProfile)
 
+	//gRPC server configuration
+	gRPCAddress := "50051"
+	lis, err := net.Listen("tcp", ":"+gRPCAddress)
+	if err != nil {
+		//handle this error
+		log.Fatalf("ERROR spinning up network listener due to: %v", err)
+	}
+
+	//s := grpc.NewServer()
+	//g-rpc.NewServer() := &rpc.Server{
+	//	service :service.UserService{},
+	//	Logger: l,
+	//}
+	grpcServ := grpc.NewServer()
+
+	grpcServer := &rpc.Server{
+		Service: &service.UserService{},
+		Logger:  l,
+	}
+
+	user_proto.RegisterUserServiceRPCServer(grpcServ, grpcServer)
+
 	//getUser := router.Methods("GET").Subrouter()
 	//getUser.HandleFunc("/grab", uh.GetUserProfile)
+
+	l.Printf("gRPC server listening o port: %v", gRPCAddress)
+	if err := grpcServ.Serve(lis); err != nil {
+		log.Fatalf("Some error spinning up RPC server: %v", err)
+		os.Exit(1)
+	}
 
 	if err := http.ListenAndServe(s.addr, router); err != nil {
 		log.Printf("Error listeniing %v", err)
