@@ -4,10 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"github/wycliff-ochieng/internal/database"
 	"github/wycliff-ochieng/internal/models"
 	"log"
 	"time"
+
+	"github.com/wycliff-ochieng/sports-proto/user_grpc/user_proto"
 
 	"github.com/google/uuid"
 	//middleware "github.com/wycliff-ochieng/common_packages"
@@ -17,7 +20,8 @@ var ErrForbidden = errors.New("user not allowed here")
 var ErrNotFound = errors.New("team not found/ does not exist")
 
 type TeamService struct {
-	db database.DBInterface
+	db         database.DBInterface
+	userClient user_proto.UserServiceRPCClient
 }
 
 type updateTeamReq struct {
@@ -29,8 +33,11 @@ type updateTeamReq struct {
 	Updatedat   time.Time `json:"updatedat"`
 }
 
-func NewTeamService(db database.DBInterface) *TeamService {
-	return &TeamService{db}
+func NewTeamService(db database.DBInterface, userClient user_proto.UserServiceRPCClient) *TeamService {
+	return &TeamService{
+		db:         db,
+		userClient: userClient,
+	}
 }
 
 func (ts *TeamService) CreateTeam(ctx context.Context, teamID uuid.UUID, name string, sport string, description string, createdat, updatedat time.Time) (*models.Team, error) {
@@ -170,7 +177,7 @@ func (ts *TeamService) GetTeamsMembers(ctx context.Context, teamID uuid.UUID) ([
 // get team ID/ UUID
 func (ts *TeamService) GetTeamByUUID(tcx context.Context) {}
 
-func (ts *TeamService) GetTeamDetails(ctx context.Context, reqUserID uuid.UUID, teamID uuid.UUID) (*models.TeamInfo, error) {
+func (ts *TeamService) GetTeamDetails(ctx context.Context, reqUserID uuid.UUID, teamID uuid.UUID) (*models.TeamDetailsInfo, error) {
 
 	//is the user a member - > authorization check -> are you team member
 	isTeamMember, err := ts.IsTeamMember(ctx, reqUserID, teamID)
@@ -197,12 +204,12 @@ func (ts *TeamService) GetTeamDetails(ctx context.Context, reqUserID uuid.UUID, 
 	}
 
 	if len(allTeamMembers) == 0 {
-		return &models.TeamInfo{
+		return &models.TeamDetailsInfo{
 			TeamID:      team.TeamID,
 			Name:        team.Name,
 			Sport:       team.Sport,
 			Description: team.Description,
-			Updatedat:   team.Createdat,
+			Members:     []models.TeamMembers{},
 		}, nil
 	}
 
@@ -212,6 +219,54 @@ func (ts *TeamService) GetTeamDetails(ctx context.Context, reqUserID uuid.UUID, 
 		//mbrUUID,err := uuid.Parse(member.UserID)
 		memberUUID = append(memberUUID, member.UserID.String())
 	}
+
+	//gRPC call to user service
+	// TODO :: --> server grpc call client (user-service) to check if
+	profilesReq := &user_proto.GetUserRequest{
+		Userid: memberUUID,
+	}
+
+	profileRes, err := ts.userClient.GetUserProfiles(ctx, profilesReq)
+	if err != nil {
+		//handle error
+		return nil, fmt.Errorf("could not fetch profiles from user service due to: %v", err)
+	}
+
+	userProfilesMap := profileRes.Profiles
+
+	//gather final reponse struct
+	finalResponse := models.TeamDetailsInfo{
+		TeamID:      team.TeamID,
+		Name:        team.Name,
+		Sport:       team.Sport,
+		Description: team.Description,
+		Members:     make([]models.TeamMembers, 0, len(allTeamMembers)),
+		//Joinedat: team.Createdat,
+		//Updatedat: team.Updatedat,
+	}
+
+	//combine data from database to the final response
+
+	for _, member := range allTeamMembers {
+		profile, found := userProfilesMap[member.UserID.String()]
+		if !found {
+			log.Println("Warning , team member does no exists in the system")
+			continue
+		}
+
+		UserUUID, err := uuid.Parse(profile.Userid)
+		if err != nil{
+			return nil,err
+		}
+
+		finalResponse.Members = append(finalResponse.Members, models.TeamMembers{
+			TeamID: profile.,
+			UserID: UserUUID,
+			Role:
+			Joinedat
+		})
+	}
+	return nil,nil
 }
 
 func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, reqUserID uuid.UUID, updateData models.UpdateTeamReq) (*models.Team, error) {
@@ -322,6 +377,7 @@ func (ts *TeamService) AddTeamMember(ctx context.Context, teamID uuid.UUID, reqU
 	//check if user being added to the team exists in the system
 	//Will need to make a gRPC call to user-service
 	//TODO:: - > implementing gRPC communication
+	//profiles,err :=
 
 	//i've assumed the user exists in the system
 	addedMember, err := ts.AddMember(ctx, teamID, addMember)
