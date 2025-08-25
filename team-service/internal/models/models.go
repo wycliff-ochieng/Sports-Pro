@@ -32,12 +32,21 @@ type TeamInfo struct {
 	Joinedat    time.Time
 }
 
+type TeamMembersResponse struct {
+	UserID    uuid.UUID
+	Firstname string
+	Lastname  string
+	Email     string
+	Createdat time.Time
+	Updatedat time.Time
+}
+
 type TeamDetailsInfo struct {
 	TeamID      uuid.UUID
 	Name        string
 	Sport       string
 	Description string
-	Members     []TeamMembers
+	Members     []TeamMembersResponse
 }
 
 type UpdateTeamReq struct {
