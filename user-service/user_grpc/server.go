@@ -27,7 +27,12 @@ func (s *Server) GetUserProfiles(ctx context.Context, req *grpc.GetUserRequest) 
 	//convert Profiles struct to gRPC userProfile struct
 	grpcProfile := make(map[string]*grpc.UserProfile)
 	for _, p := range profiles {
-		grpcProfile[p.UserID.String()] = &grpc.UserProfile{}
+		grpcProfile[p.UserID.String()] = &grpc.UserProfile{
+			Userid:    p.UserID.String(),
+			Firstname: p.Firstname,
+			Lastname:  p.Lastname,
+			Email:     p.Email,
+		}
 	}
 
 	return nil, nil

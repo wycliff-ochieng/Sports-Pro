@@ -1,18 +1,22 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type Profile struct {
-	UserID    int    `json:"userid"`
-	Firstname string `json:"fullname"`
-	Lastname  string `json:"lastname"`
-	Email     string `json:"email"`
+	UserID    uuid.UUID `json:"userid"`
+	Firstname string    `json:"fullname"`
+	Lastname  string    `json:"lastname"`
+	Email     string    `json:"email"`
 	//Avatar    string `json:"avatar"`
 	Createdat time.Time
 	Updatedat time.Time
 }
 
-func NewProfile(userid int, firstname, lastname string, email string, createdat time.Time, updatedat time.Time) *Profile {
+func NewProfile(userid uuid.UUID, firstname, lastname string, email string, createdat time.Time, updatedat time.Time) *Profile {
 	return &Profile{
 		UserID:    userid,
 		Firstname: firstname,
