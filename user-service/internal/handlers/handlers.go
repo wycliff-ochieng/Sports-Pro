@@ -25,7 +25,7 @@ func NewUserHandler(l *log.Logger, p service.Profile) *UserHandler {
 	}
 }
 
-func (u *UserHandler) GetUserProfileByUUID(w http.ResponseWriter, r *http.Request) {
+func (u *UserHandler) GetProfileByUUID(w http.ResponseWriter, r *http.Request) {
 
 	u.l.Println(">>>Getting user profile by UUiD handler ")
 
@@ -46,8 +46,6 @@ func (u *UserHandler) GetUserProfileByUUID(w http.ResponseWriter, r *http.Reques
 	w.Header().Add("Context-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&profile)
-
-	return
 
 }
 
