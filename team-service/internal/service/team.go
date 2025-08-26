@@ -40,6 +40,7 @@ func NewTeamService(db database.DBInterface, userClient user_proto.UserServiceRP
 	}
 }
 
+// POST :: creating team /api/team/create
 func (ts *TeamService) CreateTeam(ctx context.Context, teamID uuid.UUID, name string, sport string, description string, createdat, updatedat time.Time) (*models.Team, error) {
 
 	var team *models.Team
@@ -65,7 +66,7 @@ func (ts *TeamService) CreateTeam(ctx context.Context, teamID uuid.UUID, name st
 	}, nil
 }
 
-// teams for a single user
+// GET::  all teams for a single user (pass userID)
 func (ts *TeamService) GetMyTeams(ctx context.Context, userID uuid.UUID) (*[]models.TeamInfo, error) {
 
 	var teams []models.TeamInfo
@@ -103,7 +104,7 @@ func (ts *TeamService) GetMyTeams(ctx context.Context, userID uuid.UUID) (*[]mod
 	return &teams, nil
 }
 
-// teams for a single user  ->  change this to repo service - > team details
+// single team for a single user  ->  change this to repo service - > team details
 func (ts *TeamService) GetTeamByID(ctx context.Context, teamID uuid.UUID) (*models.Team, error) {
 	var AllTeams models.Team
 	query := `SELECT * FROM teams WHERE team_id=$1`
@@ -132,12 +133,12 @@ func (ts *TeamService) GetTeamByID(ctx context.Context, teamID uuid.UUID) (*mode
 	return &AllTeams, err
 }
 
-// repo service
+// repo service to check if user is a member of a tema
 func (ts *TeamService) IsTeamMember(ctx context.Context, userID uuid.UUID, teamID uuid.UUID) (bool, error) {
 	var exists bool
 	query := `SELECT EXISTS(SELECT 1 FROM team_members WHERE user_id = $1 AND team_id = $2)`
 
-	err := ts.db.QueryRowContext(ctx, query).Scan(&exists)
+	err := ts.db.QueryRowContext(ctx, query, userID, teamID).Scan(&exists)
 	if err != nil {
 		log.Fatalf("Error: query row transaction failed due to: %v", err)
 	}
@@ -148,7 +149,7 @@ func (ts *TeamService) IsTeamMember(ctx context.Context, userID uuid.UUID, teamI
 func (ts *TeamService) GetTeamsMembers(ctx context.Context, teamID uuid.UUID) ([]*models.TeamMembers, error) {
 	var teamMembers []*models.TeamMembers
 	query := `SELECT * FROM team_members WHERE team_id=$1`
-	rows, err := ts.db.QueryContext(ctx, query)
+	rows, err := ts.db.QueryContext(ctx, query, teamID)
 	if err != nil {
 		log.Fatalf("Error: issue with fetchiing team members: %v", err)
 	}
@@ -177,6 +178,7 @@ func (ts *TeamService) GetTeamsMembers(ctx context.Context, teamID uuid.UUID) ([
 // get team ID/ UUID
 func (ts *TeamService) GetTeamByUUID(tcx context.Context) {}
 
+// GET :: get a single team by ID
 func (ts *TeamService) GetTeamDetails(ctx context.Context, reqUserID uuid.UUID, teamID uuid.UUID) (*models.TeamDetailsInfo, error) {
 
 	//is the user a member - > authorization check -> are you team member
@@ -290,6 +292,7 @@ func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, 
 	defer txs.Rollback()
 
 	//check if team exists
+	//teamID,err := ts.GetTeamByID()
 	role, err := ts.GetRoleForUser(ctx, teamID, reqUserID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -318,7 +321,7 @@ func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, 
 		log.Fatalf("Failed to commit the transaction, rollback wikk be initiated: %v", err)
 	}
 
-	//TODO LATER :: produce the updateTeam Event to a Kafka topic
+	//TODO LATER :: produce the updateTeam Event to a Kafka topic  -> High Priority
 
 	return updatedTeam, nil
 }
@@ -335,6 +338,7 @@ func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, 
 }
 */
 
+// repo service for udating team
 func (ts *TeamService) UpdateTeam(ctx context.Context, teamID uuid.UUID, updateData models.UpdateTeamReq) (*models.Team, error) {
 	var team models.Team
 	query := `UPDATE teams SET name=$1, description=$, updateat=Now() WHERE team_id=$3
@@ -352,7 +356,7 @@ func (ts *TeamService) GetRoleForUser(ctx context.Context, teamID uuid.UUID, use
 
 	query := `SELECT FROM team_members WHERE team_id = $1 AND user_id=$2`
 
-	err := ts.db.QueryRowContext(ctx, query).Scan(&role)
+	err := ts.db.QueryRowContext(ctx, query, teamID, userID).Scan(&role)
 	if err != nil {
 		return "", err
 	}
@@ -368,6 +372,11 @@ func (ts *TeamService) AddTeamMember(ctx context.Context, teamID uuid.UUID, reqU
 	}
 
 	defer txs.Rollback()
+
+	/*reqUserID, err := middleware.GetUserUUIDFromContext(ctx)
+	if err != nil{
+		return nil,err
+	}*/
 
 	//query team memebr to get role -> Auhtorization check
 	role, err := ts.GetRoleForUser(ctx, teamID, reqUserID)
@@ -414,4 +423,22 @@ func (ts *TeamService) AddMember(ctx context.Context, teamID uuid.UUID, addedMem
 		Joinedat: addedMember.Joinedat,
 		UserID:   addedMember.UserID,
 	}, nil
+}
+
+func (ts *TeamService) GetTeamMebers(ctx context.Context, teamID uuid.UUID, userID uuid.UUID) (*models.TeamMembersResponse, error) {
+
+	isMember, err := ts.IsTeamMember(ctx, userID, teamID)
+	if err != nil {
+		log.Fatalf("Error checking membership due to: %v", err)
+	}
+
+	if !isMember {
+		return nil, ErrForbidden
+	}
+
+	query := `SELECT user_id, roles , joinedat FROM team_members WHERE teamid=$1`
+
+	rows, err := ts.db.QueryContext(ctx, query, teamID)
+
+	return nil, nil
 }
