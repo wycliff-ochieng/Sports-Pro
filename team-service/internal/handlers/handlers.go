@@ -250,3 +250,34 @@ func (h *TeamHandler) AddTeamMember(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(&addedMember)
 
 }
+
+func (h *TeamHandler) GetTeamRoster(w http.ResponseWriter, r *http.Request) {
+	h.l.Println("Fetching all team members and their profiles")
+
+	ctx := r.Context()
+
+	userID, err := middleware.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		http.Error(w, "failed to get userID from context", http.StatusFailedDependency)
+		return
+	}
+
+	vars := mux.Vars(r)
+
+	teamIDStr := vars["teamid"]
+
+	teamID, err := uuid.Parse(teamIDStr)
+	if err != nil {
+		log.Fatalf("Error changing teamID to uuid")
+	}
+
+	members, err := h.t.GetTeamMebers(ctx, teamID, userID)
+	if err != nil {
+		http.Error(w, "error performing getTeamMemebeers database transaction", http.StatusExpectationFailed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&members)
+}
