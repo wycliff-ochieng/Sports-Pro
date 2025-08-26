@@ -439,6 +439,31 @@ func (ts *TeamService) GetTeamMebers(ctx context.Context, teamID uuid.UUID, user
 	query := `SELECT user_id, roles , joinedat FROM team_members WHERE teamid=$1`
 
 	rows, err := ts.db.QueryContext(ctx, query, teamID)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var TeamMembers []models.TeamMembers
+
+	for rows.Next() {
+		var members models.TeamMembers
+
+		err := rows.Scan(
+			&members.UserID,
+			&members.Role,
+			&members.Joinedat,
+		)
+		if err != nil {
+			log.Fatalf("error scanning rows due to: %v", err)
+		}
+
+		TeamMembers = append(TeamMembers, members)
+
+	}
+
+	//grpc call to get user profiles
 
 	return nil, nil
 }
