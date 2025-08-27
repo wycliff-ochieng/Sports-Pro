@@ -215,7 +215,7 @@ func (ts *TeamService) GetTeamDetails(ctx context.Context, reqUserID uuid.UUID, 
 		}, nil
 	}
 
-	//fetch all members uuid and their roles -> getTeamMmebers
+	//fetch all members uuid and their roles -> getTeamMebers
 	var memberUUID []string
 	for _, member := range allTeamMembers {
 		//mbrUUID,err := uuid.Parse(member.UserID)
@@ -326,18 +326,6 @@ func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, 
 	return updatedTeam, nil
 }
 
-/*func (ts *TeamService) isTeam(ctx context.Context, teamID uuid.UUID) (bool, error) {
-	var exists bool
-
-	query := `SELECT EXISTS(SELECT 1 FROM team WHERE team_id = $1)`
-	err := ts.db.QueryRowContext(ctx, query).Scan(&exists)
-	if err != nil {
-		return false, err
-	}
-	return exists, err
-}
-*/
-
 // repo service for udating team
 func (ts *TeamService) UpdateTeam(ctx context.Context, teamID uuid.UUID, updateData models.UpdateTeamReq) (*models.Team, error) {
 	var team models.Team
@@ -425,7 +413,7 @@ func (ts *TeamService) AddMember(ctx context.Context, teamID uuid.UUID, addedMem
 	}, nil
 }
 
-func (ts *TeamService) GetTeamMebers(ctx context.Context, teamID uuid.UUID, userID uuid.UUID) (*models.TeamMembersResponse, error) {
+func (ts *TeamService) GetTeamMebers(ctx context.Context, teamID uuid.UUID, userID uuid.UUID) ([]models.TeamMembersResponse, error) {
 
 	isMember, err := ts.IsTeamMember(ctx, userID, teamID)
 	if err != nil {
@@ -436,7 +424,7 @@ func (ts *TeamService) GetTeamMebers(ctx context.Context, teamID uuid.UUID, user
 		return nil, ErrForbidden
 	}
 
-	query := `SELECT user_id, roles , joinedat FROM team_members WHERE teamid=$1`
+	/*query := `SELECT user_id, roles , joinedat FROM team_members WHERE teamid=$1`
 
 	rows, err := ts.db.QueryContext(ctx, query, teamID)
 	if err != nil {
@@ -460,10 +448,61 @@ func (ts *TeamService) GetTeamMebers(ctx context.Context, teamID uuid.UUID, user
 		}
 
 		TeamMembers = append(TeamMembers, members)
+	}*/
 
+	//var member models.TeamMembers
+
+	totalMembers, err := ts.GetTeamsMembers(ctx, teamID)
+	if err != nil {
+		log.Fatalf("No member in this team: %v", err)
+		return nil, err
+	}
+
+	if len(totalMembers) == 0 {
+		return make([]models.TeamMembersResponse, 0), nil
 	}
 
 	//grpc call to get user profiles
+	var membersID []string
+	for _, member := range totalMembers {
+		membersID = append(membersID, member.UserID.String())
+	}
 
-	return nil, nil
+	profilesReq := &user_proto.GetUserRequest{
+		Userid: membersID,
+	}
+
+	profileRes, err := ts.userClient.GetUserProfiles(ctx, profilesReq)
+	if err != nil {
+		//handle error
+		return nil, fmt.Errorf("could not fetch profiles from user service due to: %v", err)
+	}
+
+	userMembersMap := profileRes.Profiles
+
+	var finalTeamList []models.TeamMembersResponse
+
+	finalTeamList = make([]models.TeamMembersResponse, len(totalMembers))
+
+	for _, member := range totalMembers {
+		profile, found := userMembersMap[member.UserID.String()]
+
+		if !found {
+			log.Println("user not found")
+		}
+
+		mergedList := models.TeamMembersResponse{
+			UserID:    member.UserID,
+			Firstname: profile.Firstname,
+			Lastname:  profile.Lastname,
+			Email:     profile.Email,
+			//	Createdat: profile.Createdat,
+		}
+
+		finalTeamList = append(finalTeamList, mergedList)
+	}
+
+	return finalTeamList, nil
 }
+
+func (ts *TeamService) GetTeamMembersRepo(teamID uuid.UUID) []*models.Team
