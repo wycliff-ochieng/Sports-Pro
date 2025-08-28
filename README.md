@@ -13,7 +13,7 @@ The platform follows a classic microservices pattern where each service is indep
     * REST: For external, client-facing APIs.
     * gRPC: For high-performance, internal service-to-service communication.
     * Kafka: For asynchronous, event-driven communication between services.
-- Containerization: Docker & Docker Compose for local development.
+- Containerization: Docker & Docker Compose for local development. Docker and Kubernetes for Production
 - Database Migrations: Goose for managing SQL schema evolution.
 - Authentication: JSON Web Tokens (JWT).
 
