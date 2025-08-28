@@ -27,26 +27,26 @@ The platform follows a classic microservices pattern where each service is indep
 * Responsibilities: Manages user profile data (name, contact info, etc.). It acts as a central "phone book" for other services.
 * Database: user_db
 * Consumes Events:
-    1. UserCreated (from auth_service): To create a new, empty user profile.
+    - UserCreated (from auth_service): To create a new, empty user profile.
 * Publishes Events:
-    1. UserProfileUpdated: To announce changes to a user's name, allowing other services to update denormalized data.
+    - UserProfileUpdated: To announce changes to a user's name, allowing other services to update denormalized data.
 * Provides gRPC API:
-    1. GetUserProfile(user_id): Allows other services to fetch a user's details.
+    - GetUserProfile(user_id): Allows other services to fetch a user's details.
 **team_service**
 * Responsibilities: Manages teams, their rosters, and the roles of users within a team (e.g., Coach, Player).
 * Database: team_db
 * Consumes gRPC from:
-    1. user_service: To validate users and get their names when adding them to a team.
+    - user_service: To validate users and get their names when adding them to a team.
 * Provides gRPC API:
-    1. IsUserOnTeam(user_id, team_id): Allows other services to perform authorization checks.
+    - IsUserOnTeam(user_id, team_id): Allows other services to perform authorization checks.
 **event_service**
 * Responsibilities: Manages the creation, scheduling, and attendance for events like games and practices.
 * Database: event_db
 * Consumes Events:
-    1. TeamUpdated, TeamMemberAdded (from team_service): To keep its denormalized data and attendance lists in sync.
+    - TeamUpdated, TeamMemberAdded (from team_service): To keep its denormalized data and attendance lists in sync.
 * Consumes gRPC from:
-    1. team_service: To authorize actions (e.g., "Is this user a coach of the team for this event?").
-    2. user_service: To get the latest user details for attendance lists.
+    - team_service: To authorize actions (e.g., "Is this user a coach of the team for this event?").
+    - user_service: To get the latest user details for attendance lists.
 
 ### 4. Communication Patterns
 ***Synchronous: gRPC**
