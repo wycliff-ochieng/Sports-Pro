@@ -505,4 +505,4 @@ func (ts *TeamService) GetTeamMebers(ctx context.Context, teamID uuid.UUID, user
 	return finalTeamList, nil
 }
 
-func (ts *TeamService) GetTeamMembersRepo(teamID uuid.UUID) []*models.Team
+func (ts *TeamService) UpdateTeamMembersRoles(ctx context.Context, userID uuid.UUID) {}
