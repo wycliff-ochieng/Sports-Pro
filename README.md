@@ -23,6 +23,7 @@ The platform follows a classic microservices pattern where each service is indep
 * Database: auth_db
 * Publishes Events:
     1. UserCreated: Announces a new user has registered, triggering profile creation in user_service.
+
 **user_service**
 * Responsibilities: Manages user profile data (name, contact info, etc.). It acts as a central "phone book" for other services.
 * Database: user_db
@@ -32,6 +33,7 @@ The platform follows a classic microservices pattern where each service is indep
     - UserProfileUpdated: To announce changes to a user's name, allowing other services to update denormalized data.
 * Provides gRPC API:
     - GetUserProfile(user_id): Allows other services to fetch a user's details.
+
 **team_service**
 * Responsibilities: Manages teams, their rosters, and the roles of users within a team (e.g., Coach, Player).
 * Database: team_db
@@ -39,6 +41,7 @@ The platform follows a classic microservices pattern where each service is indep
     - user_service: To validate users and get their names when adding them to a team.
 * Provides gRPC API:
     - IsUserOnTeam(user_id, team_id): Allows other services to perform authorization checks.
+    
 **event_service**
 * Responsibilities: Manages the creation, scheduling, and attendance for events like games and practices.
 * Database: event_db
