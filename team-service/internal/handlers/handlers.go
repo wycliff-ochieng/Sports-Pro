@@ -238,6 +238,12 @@ func (h *TeamHandler) AddTeamMember(w http.ResponseWriter, r *http.Request) {
 
 	var addMemberReq models.AddMemberReq
 
+	err = json.NewDecoder(r.Body).Decode(&addMemberReq)
+	if err != nil {
+		http.Error(w, "failed to decode request message", http.StatusExpectationFailed)
+		return
+	}
+
 	//call service layer =
 	addedMember, err := h.t.AddTeamMember(ctx, teamID, userID, addMemberReq)
 	if err != nil {
@@ -280,4 +286,44 @@ func (h *TeamHandler) GetTeamRoster(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&members)
+}
+
+func (h *TeamHandler) UpdateTeamMember(w http.ResponseWriter, r *http.Request) {
+	h.l.Println("Update a team members role by either coach / manager ")
+
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+
+	teamIDStr := vars["teamid"]
+	teamID, err := uuid.Parse(teamIDStr)
+	if err != nil {
+		log.Fatal("failed to convert string to uuid for teamid")
+	}
+
+	//get req userId from req context
+
+	userID, err := middleware.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		http.Error(w, "failed to get userID from context", http.StatusNotFound)
+	}
+
+	var updateMember models.UpdateTeamMemberReq
+
+	err = json.NewDecoder(r.Body).Decode(&updateMember)
+	if err != nil {
+		http.Error(w, "decode team member roles daata", http.StatusExpectationFailed)
+		return
+	}
+
+	//calll user service
+	member, err := h.t.UpdateTeamMembersRoles(ctx, userID, teamID, updateMember)
+	if err != nil {
+		http.Error(w, "update datatabase operation failed", http.StatusFailedDependency)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&member)
 }
