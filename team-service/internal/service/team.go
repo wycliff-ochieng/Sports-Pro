@@ -148,6 +148,17 @@ func (ts *TeamService) IsTeamMember(ctx context.Context, userID uuid.UUID, teamI
 	return exists, nil
 }
 
+func (ts *TeamService) IsTeam(ctx context.Context, teamID uuid.UUID) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM team_members WHERE team_id = $1)`
+
+	err := ts.db.QueryRowContext(ctx, query, teamID).Scan(&exists)
+	if err != nil {
+		log.Fatalf("Error: query row transaction failed due to: %v", err)
+	}
+	return exists, nil
+}
+
 // repo service
 func (ts *TeamService) GetTeamsMembers(ctx context.Context, teamID uuid.UUID) ([]*models.TeamMembers, error) {
 	var teamMembers []*models.TeamMembers
@@ -378,7 +389,7 @@ func (ts *TeamService) AddTeamMember(ctx context.Context, teamID uuid.UUID, reqU
 	//check if user being added to the team exists in the system
 	//Will need to make a gRPC call to user-service
 	//TODO:: - > implementing gRPC communication
-	//profiles,err :=
+	//profiles,err
 
 	//i've assumed the user exists in the system
 	addedMember, err := ts.AddMember(ctx, teamID, addMember)
@@ -503,4 +514,72 @@ func (ts *TeamService) GetTeamMebers(ctx context.Context, teamID uuid.UUID, user
 	return finalTeamList, nil
 }
 
-func (ts *TeamService) UpdateTeamMembersRoles(ctx context.Context, userID uuid.UUID) {}
+func (ts *TeamService) UpdateMemberRole(ctx context.Context, userID uuid.UUID, teamID uuid.UUID, newRole string) (int64, error) {
+	//var member models.TeamMembers
+	query := `UPDATE team_members SET role=$1 ,updated_at=NOW() WHERE userid=$1 AND teamid=$2`
+
+	result, err := ts.db.ExecContext(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+func (ts *TeamService) UpdateTeamMembersRoles(ctx context.Context, userID uuid.UUID, teamID uuid.UUID, req models.UpdateTeamMemberReq) (*models.TeamMembers, error) {
+
+	txs, err := ts.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	defer txs.Rollback()
+	//check if team_id exists in team table
+	team, err := ts.IsTeam(ctx, teamID)
+	if err != nil {
+		log.Fatal("Error checking member existence")
+		return nil, err
+	}
+
+	if !team {
+		log.Fatal("Team does not exists, enter correct team")
+		return nil, ErrNotFound
+	}
+
+	//query team_members to check role of requesting userID
+	role, err := ts.GetRoleForUser(ctx, teamID, userID)
+	if err != nil {
+		log.Fatal("Error getting user roles")
+		return nil, err
+	}
+
+	isAuthorized := role == "coach" || role == "manager"
+	if !isAuthorized {
+		return nil, ErrForbidden
+	}
+
+	//if role == "player" || role != "manager" {
+	//	return nil, ErrForbidden
+	//}
+
+	rowsAffected, err := ts.UpdateMemberRole(ctx, userID, teamID, req.Role)
+	if err != nil {
+		return nil, err
+	}
+
+	if rowsAffected == 0 {
+		return nil, ErrNotFound
+	}
+
+	//commit transaction
+	if err := txs.Commit(); err != nil {
+		log.Fatalf("error committing the transaction")
+		return nil, err
+	}
+
+	return &models.TeamMembers{
+		TeamID:   teamID,
+		UserID:   userID,
+		Role:     req.Role,
+		Joinedat: time.Now(),
+	}, nil
+}
