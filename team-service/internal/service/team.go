@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github/wycliff-ochieng/internal/database"
 	"github/wycliff-ochieng/internal/models"
+	internal "github/wycliff-ochieng/internal/producer"
 	"log"
 	"time"
 
@@ -22,6 +23,7 @@ var ErrNotFound = errors.New("team not found/ does not exist")
 type TeamService struct {
 	db         database.DBInterface
 	userClient user_proto.UserServiceRPCClient
+	prod       internal.KafkaProducer
 }
 
 type updateTeamReq struct {
@@ -33,10 +35,11 @@ type updateTeamReq struct {
 	Updatedat   time.Time `json:"updatedat"`
 }
 
-func NewTeamService(db database.DBInterface, userClient user_proto.UserServiceRPCClient) *TeamService {
+func NewTeamService(db database.DBInterface, userClient user_proto.UserServiceRPCClient, producer internal.KafkaProducer) *TeamService {
 	return &TeamService{
 		db:         db,
 		userClient: userClient,
+		prod:       producer,
 	}
 }
 
@@ -261,12 +264,6 @@ func (ts *TeamService) GetTeamDetails(ctx context.Context, reqUserID uuid.UUID, 
 			return nil, err
 		}
 
-		//finalResponse.Members = append(finalResponse.Members, models.TeamDetailsInfo{
-		//	TeamID:   team.TeamID,
-		//	UserID:   UserUUID,
-		//	Role:     profile.Email,
-		//	Joinedat: profile.Createdat,
-		//})
 		finalResponse.Members = append(finalResponse.Members, models.TeamMembers{
 			TeamID:   member.TeamID,
 			UserID:   UserUUID,
@@ -278,11 +275,6 @@ func (ts *TeamService) GetTeamDetails(ctx context.Context, reqUserID uuid.UUID, 
 }
 
 func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, reqUserID uuid.UUID, updateData models.UpdateTeamReq) (*models.Team, error) {
-	//check roles ->is the user a coach /manager of that team -> RBAC
-	//roles, err := middleware.GetUserRoleFromContext(ctx)
-	//if err != nil {
-	//	return nil, err //log.Fatalf("FATAL. NOT ALLOWED: No role found for this user: %v", err)
-	//}
 
 	txs, err := ts.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -321,7 +313,13 @@ func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, 
 		log.Fatalf("Failed to commit the transaction, rollback wikk be initiated: %v", err)
 	}
 
+	var updateTeam models.UpdateTeamReq
+
 	//TODO LATER :: produce the updateTeam Event to a Kafka topic  -> High Priority
+	err = ts.prod.PublishTeamUpdate(ctx, updateTeam.TeamID)
+	if err != nil {
+		return nil, fmt.Errorf("error publishing event to topic")
+	}
 
 	return updatedTeam, nil
 }
@@ -372,7 +370,7 @@ func (ts *TeamService) AddTeamMember(ctx context.Context, teamID uuid.UUID, reqU
 		return nil, err
 	}
 
-	isAllowed := role == "COACH" || role == "MANAGER"
+	isAllowed := role == "coach" || role == "manager"
 	if !isAllowed {
 		return nil, ErrForbidden
 	}
