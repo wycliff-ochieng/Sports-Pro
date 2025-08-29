@@ -80,18 +80,17 @@ func (s *APIServer) Run() {
 	updateTeam.Use(middleware.RequireRole("COACH", "MANAGER"))
 	//updateTeam.Use(middleware.UserMiddlware(s.cfg.JWTSecret))
 
-	//set up grpc client
-	//userServiceAddress := "50051" // "user-service-svc:50051"  -> K8s name and grpc port
+	addMember := router.Methods("POST").Subrouter()
+	addMember.HandleFunc("/api/team/{teamid}/add", th.AddTeamMember)
 
-	//conn, err := grpc.NewClient(userServiceAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	//if err != nil {
-	//	log.Fatalf("ERROR setting up client: %v", err)
-	//}
+	getTeamList := router.Methods("GET").Subrouter()
+	getTeamList.HandleFunc("/api/team/{teamid}/members", th.GetTeamRoster)
 
-	//defer conn.Close()
+	updateTeamMember := router.Methods("PUT").Subrouter()
+	updateTeamMember.HandleFunc("/api/team/{teamid}/members/{userid}/update", th.UpdateTeamMember)
 
-	//create new rpc cleint from the connection
-	//userClient := user_proto.NewUserServiceRPCClient(conn)
+	deleteTeamMember := router.Methods("DELETE").Subrouter()
+	deleteTeamMember.HandleFunc("/api/team/{teamid}/member/{userid}/delete", th.RemoveTeamMember)
 
 	if err := http.ListenAndServe(s.addrr, router); err != nil {
 		log.Fatalf("Error setting up router: %v", err)
