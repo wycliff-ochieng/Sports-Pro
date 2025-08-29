@@ -115,24 +115,6 @@ func (ts *TeamService) GetTeamByID(ctx context.Context, teamID uuid.UUID) (*mode
 	if err != nil {
 		return nil, err
 	}
-	/*defer rows.Close()
-
-	for rows.Next() {
-		var allTeams models.Team
-
-		err := rows.Scan(
-			&allTeams.Name,
-			&allTeams.Sport,
-			&allTeams.Description,
-			&allTeams.TeamID,
-			&allTeams.Createdat,
-			&allTeams.Updatedat,
-		)
-		if err != nil {
-			log.Fatalf("Error: scnning rows issue due to: %v", err)
-		}
-		AllTeams = append(AllTeams, &allTeams)
-	}*/
 	return &AllTeams, err
 }
 
@@ -433,34 +415,6 @@ func (ts *TeamService) GetTeamMebers(ctx context.Context, teamID uuid.UUID, user
 		return nil, ErrForbidden
 	}
 
-	/*query := `SELECT user_id, roles , joinedat FROM team_members WHERE teamid=$1`
-
-	rows, err := ts.db.QueryContext(ctx, query, teamID)
-	if err != nil {
-		return nil, err
-	}
-
-	defer rows.Close()
-
-	var TeamMembers []models.TeamMembers
-
-	for rows.Next() {
-		var members models.TeamMembers
-
-		err := rows.Scan(
-			&members.UserID,
-			&members.Role,
-			&members.Joinedat,
-		)
-		if err != nil {
-			log.Fatalf("error scanning rows due to: %v", err)
-		}
-
-		TeamMembers = append(TeamMembers, members)
-	}*/
-
-	//var member models.TeamMembers
-
 	totalMembers, err := ts.GetTeamsMembers(ctx, teamID)
 	if err != nil {
 		log.Fatalf("No member in this team: %v", err)
@@ -557,10 +511,6 @@ func (ts *TeamService) UpdateTeamMembersRoles(ctx context.Context, userID uuid.U
 		return nil, ErrForbidden
 	}
 
-	//if role == "player" || role != "manager" {
-	//	return nil, ErrForbidden
-	//}
-
 	rowsAffected, err := ts.UpdateMemberRole(ctx, userID, teamID, req.Role)
 	if err != nil {
 		return nil, err
@@ -582,4 +532,57 @@ func (ts *TeamService) UpdateTeamMembersRoles(ctx context.Context, userID uuid.U
 		Role:     req.Role,
 		Joinedat: time.Now(),
 	}, nil
+}
+
+func (ts *TeamService) RemoveTeamMember(ctx context.Context, UserID uuid.UUID, teamID uuid.UUID) (int64, error) {
+
+	query := `DELETE FROM team_members WHERE team_id=$1 AND user_id=2`
+
+	result, err := ts.db.ExecContext(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+func (ts *TeamService) RemoveMember(ctx context.Context, reqUserID, userIDToRemove, teamID uuid.UUID) (*models.TeamMembers, error) {
+
+	if reqUserID == userIDToRemove {
+		log.Println("user attempted to remove themselves from the team")
+		//fmt.Errorf("cannot remove yourself from a team")
+	}
+
+	txs, err := ts.db.BeginTx(ctx, nil)
+	if err != nil {
+		log.Fatal("failed to begin transaction")
+		return nil, err
+	}
+
+	defer txs.Rollback()
+
+	role, err := ts.GetRoleForUser(ctx, teamID, reqUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	isAuthorized := role == "coach" || role == "manager"
+	if !isAuthorized {
+		return nil, ErrForbidden
+	}
+
+	rowsAffected, err := ts.RemoveTeamMember(ctx, userIDToRemove, teamID)
+	if err != nil {
+		log.Fatalf("error")
+	}
+
+	if rowsAffected == 0 {
+		return nil, ErrNotFound
+	}
+
+	if err := txs.Commit(); err != nil {
+		log.Fatalf("error commitinng transaction")
+		return nil, err
+	}
+
+	return &models.TeamMembers{}, nil
 }
