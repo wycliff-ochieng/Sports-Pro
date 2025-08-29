@@ -3,8 +3,9 @@ package grpc
 import (
 	"context"
 	"log"
-	//"github.com/wycliff-ochieng/internal/service"
-	//grpc "github.com/wycliff-ochieng/user_grpc/user_proto"
+
+	"github.com/wycliff-ochieng/internal/service"
+	grpc "github.com/wycliff-ochieng/sports-proto/user_grpc/user_proto"
 )
 
 type Server struct {
