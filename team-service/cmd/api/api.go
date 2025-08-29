@@ -4,7 +4,9 @@ import (
 	"github/wycliff-ochieng/internal/config"
 	"github/wycliff-ochieng/internal/database"
 	"github/wycliff-ochieng/internal/handlers"
+	internal "github/wycliff-ochieng/internal/producer"
 	"github/wycliff-ochieng/internal/service"
+	"github/wycliff-ochieng/middleware"
 	"log"
 	"net/http"
 	"os"
@@ -36,6 +38,13 @@ func (s *APIServer) Run() {
 		log.Printf("error configuring db: %v", err)
 	}
 
+	p, err := internal.InitKafkaProducer()
+	if err != nil {
+		log.Fatalf("something failed when initializing: %s", err)
+	}
+
+	ep := internal.NewUpdateTeam(p, "team_events")
+
 	userServiceAddress := "50051" // "user-service-svc:50051"  -> K8s name and grpc port
 
 	conn, err := grpc.NewClient(userServiceAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -47,7 +56,7 @@ func (s *APIServer) Run() {
 
 	userClient := user_proto.NewUserServiceRPCClient(conn)
 
-	ts := service.NewTeamService(db, userClient)
+	ts := service.NewTeamService(db, userClient, ep)
 
 	th := handlers.NewTeamHandler(l, ts)
 
@@ -65,6 +74,11 @@ func (s *APIServer) Run() {
 
 	getTeamsByID := router.Methods("GET").Subrouter()
 	getTeamsByID.HandleFunc("/api/team/{team_id}", th.GetTeamsByID)
+
+	updateTeam := router.Methods("PUT").Subrouter()
+	updateTeam.HandleFunc("/api/team/{teamid}/update", th.UpdateTeam)
+	updateTeam.Use(middleware.RequireRole("COACH", "MANAGER"))
+	//updateTeam.Use(middleware.UserMiddlware(s.cfg.JWTSecret))
 
 	//set up grpc client
 	//userServiceAddress := "50051" // "user-service-svc:50051"  -> K8s name and grpc port
