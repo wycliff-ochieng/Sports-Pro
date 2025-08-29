@@ -41,7 +41,7 @@ The platform follows a classic microservices pattern where each service is indep
     - user_service: To validate users and get their names when adding them to a team.
 * Provides gRPC API:
     - IsUserOnTeam(user_id, team_id): Allows other services to perform authorization checks.
-    
+
 **event_service**
 * Responsibilities: Manages the creation, scheduling, and attendance for events like games and practices.
 * Database: event_db
@@ -52,9 +52,10 @@ The platform follows a classic microservices pattern where each service is indep
     - user_service: To get the latest user details for attendance lists.
 
 ### 4. Communication Patterns
-***Synchronous: gRPC**
+**Synchronous: gRPC**
 - Used for request/response cycles where a service needs an immediate answer from another service to complete its task.
 - Example: When team_service adds a player, it must synchronously call user_service to confirm the user exists before committing the database transaction.
+
 **Asynchronous: Kafka**
 - Used for fire-and-forget events to decouple services. The producing service does not wait for a response.
 - Example: When auth_service registers a new user, it publishes a UserCreated event. It doesn't know or care if user_service is online to process it immediately. The event will wait in the Kafka topic until the consumer is ready, ensuring resilience
