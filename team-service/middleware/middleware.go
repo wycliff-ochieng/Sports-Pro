@@ -13,7 +13,7 @@ import (
 type ContextKey string
 
 const UserUUIDKey ContextKey = "userUUID"
-const RolesdKey ContextKey = "roles"
+const RolesKey ContextKey = "roles"
 const UserIDKey ContextKey = "userID"
 
 type Claims struct {
@@ -51,7 +51,7 @@ func UserMiddlware(jwtSecret string) func(next http.Handler) http.Handler {
 			//Extract claims (the populate context)
 			if claims, ok := token.Claims.(*Claims); ok {
 				ctx := context.WithValue(r.Context(), UserUUIDKey, claims.UserUUID)
-				ctx = context.WithValue(r.Context(), RolesdKey, claims.Roles)
+				ctx = context.WithValue(r.Context(), RolesKey, claims.Roles)
 				next.ServeHTTP(w, r.WithContext(ctx))
 			} else {
 				http.Error(w, "could not parse token claims", http.StatusFailedDependency)
@@ -69,7 +69,7 @@ func GetUserUUIDFromContext(ctx context.Context) (uuid.UUID, error) {
 }
 
 func GetUserRoleFromContext(ctx context.Context) (string, error) {
-	role, ok := ctx.Value(RolesdKey).(string)
+	role, ok := ctx.Value(RolesKey).(string)
 	if !ok || role == "" {
 		return "", errors.New("error: No roles for this user")
 	}
@@ -82,4 +82,40 @@ func GetUserIDFromContext(ctx context.Context) (int, error) {
 		return 0, errors.New("UserId not foumd for this user")
 	}
 	return userID, nil
+}
+
+func RequireRole(allowedRoles ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Get the user's roles from the context set by the AuthMiddleware.
+			userRoles, ok := r.Context().Value(RolesKey).([]interface{})
+			if !ok {
+				// This should not happen if AuthMiddleware is used correctly
+				http.Error(w, "Could not retrieve user roles from context", http.StatusInternalServerError)
+				return
+			}
+
+			// Create a set for efficient lookup
+			allowedRolesSet := make(map[string]struct{})
+			for _, role := range allowedRoles {
+				allowedRolesSet[role] = struct{}{}
+			}
+
+			// Check if the user has at least one of the allowed roles
+			for _, role := range userRoles {
+				roleStr, ok := role.(string)
+				if !ok {
+					continue
+				} // Skip if role is not a string
+
+				if _, found := allowedRolesSet[roleStr]; found {
+					// User has a required role, proceed to the next handler
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+			// If we get here, the user has none of the required roles
+			http.Error(w, "Forbidden: You don't have the required permissions.", http.StatusForbidden)
+		})
+	}
 }
