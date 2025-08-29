@@ -46,7 +46,7 @@ type TeamDetailsInfo struct {
 	Name        string
 	Sport       string
 	Description string
-	Members     []TeamMembersResponse
+	Members     []TeamMembers
 }
 
 type UpdateTeamReq struct {
@@ -62,6 +62,10 @@ type AddMemberReq struct {
 	UserID   uuid.UUID `json:"userid"`
 	Role     string    `json:"role"`
 	Joinedat time.Time `json:"joinedat"`
+}
+
+type UpdateTeamMemberReq struct {
+	Role string
 }
 
 func NewTeam(teamID uuid.UUID, name string, sport string, description string, createdat, updatedat time.Time) (*Team, error) {
