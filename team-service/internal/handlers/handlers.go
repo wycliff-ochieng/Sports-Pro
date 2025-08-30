@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github/wycliff-ochieng/internal/models"
 	"github/wycliff-ochieng/internal/service"
 	"github/wycliff-ochieng/middleware"
@@ -85,6 +86,7 @@ func (h *TeamHandler) GetTeams(w http.ResponseWriter, r *http.Request) {
 	userUUID, err := middleware.GetUserUUIDFromContext(ctx)
 	if err != nil {
 		http.Error(w, "UUID for the user is missing", http.StatusBadRequest)
+		h.l.Printf("GET USER UUID FROM CONTEXT ERROR: %v", err)
 		return
 	}
 
@@ -326,4 +328,44 @@ func (h *TeamHandler) UpdateTeamMember(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&member)
+}
+
+func (h *TeamHandler) RemoveTeamMember(w http.ResponseWriter, r *http.Request) {
+	h.l.Println("Deleteing team member handler")
+
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+
+	teamIDStr := vars["teamid"]
+	userIDStr := vars["userid"]
+
+	teamID, err := uuid.Parse(teamIDStr)
+	if err != nil {
+		http.Error(w, "Error changing teamId to uuid", http.StatusExpectationFailed)
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		http.Error(w, "Error changing userId to uuid", http.StatusExpectationFailed)
+		return
+	}
+
+	reqUserID, err := middleware.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		http.Error(w, "failed to get requester's userId from context", http.StatusNotFound)
+	}
+
+	//call user service
+	_, err = h.t.RemoveMember(ctx, reqUserID, userID, teamID)
+	if err != nil {
+		h.l.Println("cannot delete member from this table")
+		if errors.Is(err, service.ErrNotFound) {
+			http.Error(w, "user with this ID was not found", http.StatusNotFound)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
