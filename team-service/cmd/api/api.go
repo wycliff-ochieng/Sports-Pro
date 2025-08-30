@@ -61,6 +61,7 @@ func (s *APIServer) Run() {
 	th := handlers.NewTeamHandler(l, ts)
 
 	//instatiate middleware
+	authMiddleware := middleware.TeamMiddlware(s.cfg.JWTSecret)
 
 	//set up router
 	router := mux.NewRouter()
@@ -68,6 +69,8 @@ func (s *APIServer) Run() {
 	//routes
 	createTeam := router.Methods("POST").Subrouter()
 	createTeam.HandleFunc("/api/teams", th.CreateTeam)
+	createTeam.Use(authMiddleware)
+	createTeam.Use(middleware.RequireRole("coach", "manager"))
 
 	getTeams := router.Methods("GET").Subrouter()
 	getTeams.HandleFunc("/api/get/teams", th.GetTeams)
@@ -82,15 +85,18 @@ func (s *APIServer) Run() {
 
 	addMember := router.Methods("POST").Subrouter()
 	addMember.HandleFunc("/api/team/{teamid}/add", th.AddTeamMember)
+	addMember.Use(middleware.RequireRole("coach", "manager"))
 
 	getTeamList := router.Methods("GET").Subrouter()
 	getTeamList.HandleFunc("/api/team/{teamid}/members", th.GetTeamRoster)
 
 	updateTeamMember := router.Methods("PUT").Subrouter()
 	updateTeamMember.HandleFunc("/api/team/{teamid}/members/{userid}/update", th.UpdateTeamMember)
+	updateTeamMember.Use(middleware.RequireRole("coach", "manager"))
 
 	deleteTeamMember := router.Methods("DELETE").Subrouter()
 	deleteTeamMember.HandleFunc("/api/team/{teamid}/member/{userid}/delete", th.RemoveTeamMember)
+	deleteTeamMember.Use(middleware.RequireRole("coach", "manager"))
 
 	if err := http.ListenAndServe(s.addrr, router); err != nil {
 		log.Fatalf("Error setting up router: %v", err)
