@@ -6,11 +6,14 @@ import (
 	"github/wycliff-ochieng/internal/handlers"
 	internal "github/wycliff-ochieng/internal/producer"
 	"github/wycliff-ochieng/internal/service"
-	"github/wycliff-ochieng/middleware"
+
+	//"github/wycliff-ochieng/middleware"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
+	auth "github.com/wycliff-ochieng/sports-proto/middleware"
 	"github.com/wycliff-ochieng/sports-proto/user_grpc/user_proto"
 
 	"github.com/gorilla/mux"
@@ -32,6 +35,15 @@ func NewAPIServer(addrr string, cfg *config.Config) *APIServer {
 
 func (s *APIServer) Run() {
 	l := log.New(os.Stdout, ">>>TEAM SERVICE FIRING", log.LstdFlags)
+
+	handlerOpts := &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}
+	handler := slog.NewTextHandler(os.Stdout, handlerOpts)
+
+	baseLogger := slog.New(handler)
+
+	logger := baseLogger.With("service", "team-service")
 
 	db, err := database.NewPostgresDB(s.cfg)
 	if err != nil {
@@ -61,7 +73,7 @@ func (s *APIServer) Run() {
 	th := handlers.NewTeamHandler(l, ts)
 
 	//instatiate middleware
-	authMiddleware := middleware.TeamMiddlware(s.cfg.JWTSecret)
+	authMiddleware := auth.AuthMiddleware(s.cfg.JWTSecret, logger) //.TeamMiddlware(s.cfg.JWTSecret)
 
 	//set up router
 	router := mux.NewRouter()
@@ -70,33 +82,34 @@ func (s *APIServer) Run() {
 	createTeam := router.Methods("POST").Subrouter()
 	createTeam.HandleFunc("/api/teams", th.CreateTeam)
 	createTeam.Use(authMiddleware)
-	createTeam.Use(middleware.RequireRole("coach", "manager"))
+	createTeam.Use(auth.RequireRole("coach", "manager"))
 
 	getTeams := router.Methods("GET").Subrouter()
 	getTeams.HandleFunc("/api/get/teams", th.GetTeams)
+	getTeams.Use(authMiddleware)
 
 	getTeamsByID := router.Methods("GET").Subrouter()
 	getTeamsByID.HandleFunc("/api/team/{team_id}", th.GetTeamsByID)
 
 	updateTeam := router.Methods("PUT").Subrouter()
 	updateTeam.HandleFunc("/api/team/{teamid}/update", th.UpdateTeam)
-	updateTeam.Use(middleware.RequireRole("COACH", "MANAGER"))
+	updateTeam.Use(auth.RequireRole("COACH", "MANAGER"))
 	//updateTeam.Use(middleware.UserMiddlware(s.cfg.JWTSecret))
 
 	addMember := router.Methods("POST").Subrouter()
 	addMember.HandleFunc("/api/team/{teamid}/add", th.AddTeamMember)
-	addMember.Use(middleware.RequireRole("coach", "manager"))
+	addMember.Use(auth.RequireRole("coach", "manager"))
 
 	getTeamList := router.Methods("GET").Subrouter()
 	getTeamList.HandleFunc("/api/team/{teamid}/members", th.GetTeamRoster)
 
 	updateTeamMember := router.Methods("PUT").Subrouter()
 	updateTeamMember.HandleFunc("/api/team/{teamid}/members/{userid}/update", th.UpdateTeamMember)
-	updateTeamMember.Use(middleware.RequireRole("coach", "manager"))
+	updateTeamMember.Use(auth.RequireRole("coach", "manager"))
 
 	deleteTeamMember := router.Methods("DELETE").Subrouter()
 	deleteTeamMember.HandleFunc("/api/team/{teamid}/member/{userid}/delete", th.RemoveTeamMember)
-	deleteTeamMember.Use(middleware.RequireRole("coach", "manager"))
+	deleteTeamMember.Use(auth.RequireRole("coach", "manager"))
 
 	if err := http.ListenAndServe(s.addrr, router); err != nil {
 		log.Fatalf("Error setting up router: %v", err)
