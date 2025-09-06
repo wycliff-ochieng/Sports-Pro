@@ -4,6 +4,10 @@ import (
 	"log"
 
 	"github.com/wycliff-ochieng/internal/config"
+	"github.com/wycliff-ochieng/internal/database"
+	"github.com/wycliff-ochieng/internal/handlers"
+	"github.com/wycliff-ochieng/internal/service"
+	"github.com/wycliff-ochieng/sports-proto/team_grpc/team_proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -22,6 +26,11 @@ func NewAPIServer(addr string, cfg *config.Config) *APIServer {
 
 func (s *APIServer) Run() {
 
+	db, err := database.NewPostgresDB(s.cfg)
+	if err != nil {
+		log.Fatalf("error setting up postgres connection due to: %v", err)
+	}
+
 	teamServiceAddress := "50051"
 
 	conn, err := grpc.NewClient(teamServiceAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -32,4 +41,9 @@ func (s *APIServer) Run() {
 	defer conn.Close()
 
 	//set up teamServiceClient
+	teamClient := team_proto.NewTeamRPCClient(conn)
+
+	es := service.NewEventService(db, teamClient)
+
+	eh := handlers.NewEventHandler(l, es)
 }
