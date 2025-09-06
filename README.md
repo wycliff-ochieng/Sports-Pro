@@ -18,13 +18,13 @@ The platform follows a classic microservices pattern where each service is indep
 - Authentication: JSON Web Tokens (JWT).
 
 ### 3. Microservice Overview
-**auth_service**
+**AUTHENTICATION_SERVICE**
 * Responsibilities: Manages user registration, login, and password hashing. It is the sole creator of JWTs and the source of truth for a user's roles.
 * Database: auth_db
 * Publishes Events:
     1. UserCreated: Announces a new user has registered, triggering profile creation in user_service.
 
-**user_service**
+**USER_SERVICE**
 * Responsibilities: Manages user profile data (name, contact info, etc.). It acts as a central "phone book" for other services.
 * Database: user_db
 * Consumes Events:
@@ -34,7 +34,7 @@ The platform follows a classic microservices pattern where each service is indep
 * Provides gRPC API:
     - GetUserProfile(user_id): Allows other services to fetch a user's details.
 
-**team_service**
+**TEAM_SERVICE**
 * Responsibilities: Manages teams, their rosters, and the roles of users within a team (e.g., Coach, Player).
 * Database: team_db
 * Consumes gRPC from:
@@ -42,7 +42,7 @@ The platform follows a classic microservices pattern where each service is indep
 * Provides gRPC API:
     - IsUserOnTeam(user_id, team_id): Allows other services to perform authorization checks.
 
-**event_service**
+**EVENT_SERVICE**
 * Responsibilities: Manages the creation, scheduling, and attendance for events like games and practices.
 * Database: event_db
 * Consumes Events:
@@ -50,6 +50,14 @@ The platform follows a classic microservices pattern where each service is indep
 * Consumes gRPC from:
     - team_service: To authorize actions (e.g., "Is this user a coach of the team for this event?").
     - user_service: To get the latest user details for attendance lists.
+
+**WORKOUT_SERVICE**
+* Responsibilities: store/provide workout library for various sports
+* Still pending
+
+**FINANCE_SERVICE**
+* Responsibility: handle account subscriptions, team membership subscriptions, team financial management
+* Still pending
 
 ### 4. Communication Patterns
 **Synchronous: gRPC**
