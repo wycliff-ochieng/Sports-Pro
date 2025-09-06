@@ -102,9 +102,9 @@ func (es *EventService) CreateTeamEvent(ctx context.Context, reqUserID uuid.UUID
 
 	createdEvent, err := es.CreateEvent(ctx, txs, newEvent.TeamID, newEvent.Title, newEvent.EventType, newEvent.Location, newEvent.StartTime, newEvent.EndTime)
 	if err != nil {
-		es.l.Error("error creating event due to ", err)
+		es.l.Error("error creating event due to ", "error", err)
 	}
-	es.l.Info("event created successfully for team", createdEvent.TeamID)
+	es.l.Info("event created successfully for team", "teamID", createdEvent.TeamID)
 
 	//write to database the attendace list
 	//prepopulate the initial list
@@ -119,10 +119,14 @@ func (es *EventService) CreateTeamEvent(ctx context.Context, reqUserID uuid.UUID
 			attendanceRecords = append(attendanceRecords, models.Attendance{
 				EventID:    createdEvent.ID,
 				UserID:     memberID,
+				TeamID:     createdEvent.TeamID,
 				Status:     "PENDING",
 				UpdateteAt: time.Now(),
 			})
 		}
+
+		//insert into attendance table (bulk insert->provides high performance)
+
 	}
 
 	return nil, nil
@@ -154,5 +158,29 @@ func (es *EventService) CreateEvent(ctx context.Context, tx *sql.Tx, teamID uuid
 		Location:  location,
 		StartTime: starttime,
 		EndTime:   endtime,
+	}, nil
+}
+
+func (es *EventService) CreateAttendanceList(ctx context.Context, tx *sql.Tx, event_id, userID uuid.UUID, teamID uuid.UUID, status string, updatedat time.Time) (*models.Attendance, error) {
+	es.l.Info("Creating attendance list")
+
+	attendance, err := models.NewAttendance(event_id, teamID, userID, status, updatedat)
+	if err != nil {
+		return nil, err
+	}
+
+	query := `INSERT INTO attendance(event_id, team_id,user_id, status, updatedat) VALUES($1, $2,$3,$4,$5,$6)`
+
+	_, err = es.db.ExecContext(ctx, query, attendance.EventID, attendance.TeamID, attendance.UserID, attendance.Status, attendance.UpdateteAt)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.Attendance{
+		EventID:    uuid.New(),
+		TeamID:     teamID,
+		UserID:     userID,
+		Status:     status,
+		UpdateteAt: time.Now(),
 	}, nil
 }
