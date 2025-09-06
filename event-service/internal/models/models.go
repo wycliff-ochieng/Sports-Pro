@@ -25,3 +25,11 @@ type Attendance struct {
 	UserName   string
 	UpdateteAt time.Time
 }
+
+type CreateEventReq struct {
+	TeamID    uuid.UUID
+	Name      string
+	Location  string
+	StartTime time.Time
+	EndTime   time.Time
+}
