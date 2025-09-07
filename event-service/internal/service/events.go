@@ -127,7 +127,7 @@ func (es *EventService) CreateTeamEvent(ctx context.Context, reqUserID uuid.UUID
 		}
 
 		//insert into attendance table (bulk insert->provides high performance)
-		attendance, err := es.CreateAttendanceList(ctx, txs, att)
+		attendance := es.CreateBulkInsert(ctx, txs, attendanceRecords)
 
 	}
 
@@ -163,6 +163,15 @@ func (es *EventService) CreateEvent(ctx context.Context, tx *sql.Tx, teamID uuid
 	}, nil
 }
 
+func (es *EventService) CreateAttendanceInsert(ctx context.Context, tx *sql.Tx, records []models.Attendance) error{
+	es.l.Info("Starting bulk insert using database/sql driver")
+
+	if len(records) == 0 {
+		return nil
+	}
+	
+}
+
 func (es *EventService) CreateBulkInsert(ctx context.Context, txs pgx.Tx, attendances []models.Attendance) error {
 	es.l.Info("Successfully starting bulk insert .... ")
 
@@ -196,7 +205,7 @@ func (es *EventService) CreateBulkInsert(ctx context.Context, txs pgx.Tx, attend
 	return nil
 }
 
-/*
+
 func (es *EventService) CreateAttendanceList(ctx context.Context, tx *sql.Tx, event_id, userID uuid.UUID, teamID uuid.UUID, status string, updatedat time.Time) (*models.Attendance, error) {
 	es.l.Info("Creating attendance list")
 
