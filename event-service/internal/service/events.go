@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/wycliff-ochieng/internal/database"
 	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/sports-proto/team_grpc/team_proto"
@@ -127,7 +127,16 @@ func (es *EventService) CreateTeamEvent(ctx context.Context, reqUserID uuid.UUID
 		}
 
 		//insert into attendance table (bulk insert->provides high performance)
-		attendance := es.CreateBulkInsert(ctx, txs, attendanceRecords)
+		if err := es.CreateAttendanceInsert(ctx, txs, attendanceRecords); err != nil {
+			es.l.Error("error inserting to iniital attendance table")
+		}
+		es.l.Info("bulk rcord attendance created ")
+
+		if err := txs.Commit(); err != nil {
+			log.Fatalf("error commiting /creating team event due to: %v", err)
+			return nil, err
+		}
+		es.l.Info("successfully created event for team %s", "teamID", teamID)
 
 	}
 
@@ -163,15 +172,52 @@ func (es *EventService) CreateEvent(ctx context.Context, tx *sql.Tx, teamID uuid
 	}, nil
 }
 
-func (es *EventService) CreateAttendanceInsert(ctx context.Context, tx *sql.Tx, records []models.Attendance) error{
+func (es *EventService) CreateAttendanceInsert(ctx context.Context, tx *sql.Tx, records []models.Attendance) error {
 	es.l.Info("Starting bulk insert using database/sql driver")
 
 	if len(records) == 0 {
 		return nil
 	}
-	
+
+	sqlStr := `INSERT INTO attendance VALUES(event_id,user_id,status)`
+
+	vals := []interface{}{}
+
+	for i, record := range records {
+		placeHolder1 := i*3 + 1
+		placeHolder2 := i*3 + 2
+		placeHolder3 := i*3 + 3
+
+		sqlStr += fmt.Sprintf("(%d,%d,%d),", placeHolder1, placeHolder2, placeHolder3)
+
+		vals = append(vals, record.EventID, record.UserID, record.Status)
+	}
+
+	sqlStr = strings.TrimSuffix(sqlStr, ",")
+
+	stmt, err := tx.PrepareContext(ctx, sqlStr)
+	if err != nil {
+		return fmt.Errorf("failed to prepare bulk insert due to: %v", err)
+	}
+
+	result, err := stmt.ExecContext(ctx, vals)
+	if err != nil {
+		return fmt.Errorf("failed to execute bulk insert: %v", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("faileed to get rows affected, %v", err)
+	}
+
+	if int(rowsAffected) != len(records) {
+		return fmt.Errorf("bulk insert mismatch %v", err)
+	}
+	return nil
+
 }
 
+/*
 func (es *EventService) CreateBulkInsert(ctx context.Context, txs pgx.Tx, attendances []models.Attendance) error {
 	es.l.Info("Successfully starting bulk insert .... ")
 
