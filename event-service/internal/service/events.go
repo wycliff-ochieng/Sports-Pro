@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/wycliff-ochieng/internal/database"
 	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/sports-proto/team_grpc/team_proto"
@@ -126,6 +127,7 @@ func (es *EventService) CreateTeamEvent(ctx context.Context, reqUserID uuid.UUID
 		}
 
 		//insert into attendance table (bulk insert->provides high performance)
+		attendance, err := es.CreateAttendanceList(ctx, txs, att)
 
 	}
 
@@ -161,6 +163,40 @@ func (es *EventService) CreateEvent(ctx context.Context, tx *sql.Tx, teamID uuid
 	}, nil
 }
 
+func (es *EventService) CreateBulkInsert(ctx context.Context, txs pgx.Tx, attendances []models.Attendance) error {
+	es.l.Info("Successfully starting bulk insert .... ")
+
+	//pre-allocating outer slice
+	dataRows := make([][]interface{}, 0, len(attendances))
+
+	for _, attendance := range attendances {
+		dataRows = append(dataRows, []interface{}{
+			attendance.EventID,
+			attendance.TeamID,
+			attendance.UserID,
+			attendance.Status,
+			attendance.UpdateteAt,
+		})
+	}
+
+	//execution ->defining tbl indentifiers and colmns
+
+	tableIdentifier := pgx.Identifier{"event_attendance"}
+	columnNames := []string{"event_id", "team_id", "user_id", "status", "updatedat"}
+
+	//perform bulk insert -> use CopyFrom method
+	rowsAffected, err := txs.CopyFrom(ctx, tableIdentifier, columnNames, pgx.CopyFromRows(dataRows))
+	if err != nil {
+		return fmt.Errorf("failed to execute bulk insert most probably due to: %w", err)
+	}
+
+	if int(rowsAffected) != len(attendances) {
+		return fmt.Errorf("bulk insert mismatch, expected to insert %d but only %d was inserted", len(attendances), rowsAffected)
+	}
+	return nil
+}
+
+/*
 func (es *EventService) CreateAttendanceList(ctx context.Context, tx *sql.Tx, event_id, userID uuid.UUID, teamID uuid.UUID, status string, updatedat time.Time) (*models.Attendance, error) {
 	es.l.Info("Creating attendance list")
 
@@ -184,3 +220,4 @@ func (es *EventService) CreateAttendanceList(ctx context.Context, tx *sql.Tx, ev
 		UpdateteAt: time.Now(),
 	}, nil
 }
+*/
