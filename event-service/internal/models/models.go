@@ -19,14 +19,16 @@ type Event struct {
 }
 
 type Attendance struct {
-	EventID    uuid.UUID
-	UserID     uuid.UUID
-	Status     string
-	UserName   string
+	EventID uuid.UUID
+	TeamID  uuid.UUID
+	UserID  uuid.UUID
+	Status  string
+	//UserName   string
 	UpdateteAt time.Time
 }
 
 type CreateEventReq struct {
+	EventID   uuid.UUID
 	TeamID    uuid.UUID
 	Name      string
 	EventType string
@@ -43,5 +45,15 @@ func NewEvent(teamID uuid.UUID, name string, eventype string, Location string, s
 		Location:  Location,
 		StartTime: start,
 		EndTime:   end,
+	}, nil
+}
+
+func NewAttendance(eventID uuid.UUID, teamID uuid.UUID, userID uuid.UUID, status string, updatedat time.Time) (*Attendance, error) {
+	return &Attendance{
+		EventID:    eventID,
+		TeamID:     teamID,
+		UserID:     userID,
+		Status:     status,
+		UpdateteAt: updatedat,
 	}, nil
 }
