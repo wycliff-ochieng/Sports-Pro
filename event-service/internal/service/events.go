@@ -217,97 +217,123 @@ func (es *EventService) CreateAttendanceInsert(ctx context.Context, tx *sql.Tx, 
 
 }
 
-
-func(es *EventService) GetTeamEvents(ctx context.Context,eventID uuid.UUID, reqUserID uuid.UUID,) (*models.Event,error) {
+func (es *EventService) GetTeamEvents(ctx context.Context, eventID uuid.UUID, reqUserID uuid.UUID) (*models.Event, error) {
 	es.l.Info("getting a single event details, ")
 
 	query := `SELECT teamID FROM events WHERE eventID=$1`
 
 	var teamID string
 
-	err := es.db.QueryRowContext(ctx,query,eventID).Scan(&teamID)
-	if err == sql.ErrNoRows{
+	err := es.db.QueryRowContext(ctx, query, eventID).Scan(&teamID)
+	if err == sql.ErrNoRows {
 		es.l.Error("No team associated with thatt event")
-		return nil,err
+		return nil, err
 	}
-
-	//row,err := es.db.QueryContext(ctx,query,eventID)
-	//if err == sql.ErrNoRows{
-	//	es.l.Error("No team has such an event")
-	//	return nil,err
-	//}
 
 	//gRPC call to team service to check membership
 	memberShipReq := &team_proto.GetTeamMembershipRequest{
-		TeamId: teamID ,
+		TeamId: teamID,
 		UserId: []string{reqUserID.String()},
 	}
 
-	members, err := es.teamClient.CheckTeamMembership(ctx,memberShipReq)
-	if err != nil{
-		return nil,err
+	members, err := es.teamClient.CheckTeamMembership(ctx, memberShipReq)
+	if err != nil {
+		return nil, err
 	}
 
 	membersInfo, found := members.Members[teamID]
-	if !found{
+	if !found {
 		es.l.Info("Check if the requesting userId is a member of this team == reqUserId and teamID match")
 		es.l.Error("userID not is not a member")
-		return nil,ErrForbidden
+		return nil, ErrForbidden
 	}
 
 	isAllowed := membersInfo.Role == "coach" || membersInfo.Role == "manager" || membersInfo.Role == "player"
-	if !isAllowed{
+	if !isAllowed {
 		es.l.Error("user does not posses a role in this team")
 	}
 	es.l.Info("authorization done successfully")
 
-	//call get events 
+	//call get events
+	event, err := es.GetEvent(ctx, eventID)
+	if err != nil {
+		es.l.Error("Error getting events from database to repository layer")
+		log.Fatalf("The error: %v", err)
+		return nil, err
+	}
+
+	attendanceList, err := es.GetAttendanceList(ctx, eventID)
+	if err != nil {
+		es.l.Error("")
+		log.Fatalf("Error due to : %v", err)
+		return nil, err
+	}
 
 	//call get event attendace
-	
-	
 
-	eventQuery := `SELECT e.event_id,e.team_id,e.name, e.event_type,e.location,e.start_time,e.end_time , at.user_id, at.status FROM events e FULL OUTER JOIN
-	attendance at ON e.event_id = at.event_id
-	WHERE eventID = $1`
+	//eventQuery := `SELECT e.event_id,e.team_id,e.name, e.event_type,e.location,e.start_time,e.end_time , at.user_id, at.status FROM events e FULL OUTER JOIN
+	//attendance at ON e.event_id = at.event_id
+	//WHERE eventID = $1`
 	//attendanceQuery := `SELECT user_id,status FROM attendance WHERE event_id=$1`
-	
-	err = es.db.QueryRowContext(ctx,eventQuery,eventID).Scan(&membersInfo)
-	if err != nil{
-		es.l.Error("issue querying the event details")
+
+	//err = es.db.QueryRowContext(ctx,eventQuery,eventID).Scan(&membersInfo)
+	//if err != nil{
+	//	es.l.Error("issue querying the event details")
+	//}
+
+	userIDs := make([]string, 0, len(attendanceList))
+	for _, record := range attendanceList {
+		userIDs = append(userIDs, record.UserID.String())
 	}
 
 	var userIDs []string
-	for _, ID := range{}
+	//for _, ID := range{}
 	return &models.Event{
 		//TeamID: membersInfo.TeamId,
-	},nil
+	}, nil
 }
 
-
-func(es *EventService) GetAttendanceList(ctx context.Context,eventID uuid.UUID) ([]*models.Attendance,error){
+func (es *EventService) GetAttendanceList(ctx context.Context, eventID uuid.UUID) ([]*models.Attendance, error) {
 	es.l.Info("Fetching attendance list repository operation")
 
 	var EventAttendance []*models.Attendance
 
 	query := `SELECT user_id,status FROM attendance WHERE event_id=$1`
 
-	rows, err := es.db.QueryContext(ctx,query)
-	if err != nil{
-		return nil,err
+	rows, err := es.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
 	}
 
 	for rows.Next() {
 		var attendance models.Attendance
 		err = rows.Scan(
-			&attendance.eventID,
-			&attendance.teamID,
-			&attendance.status,
-			&attendance.
+			&attendance.EventID,
+			&attendance.TeamID,
+			&attendance.UserID,
+			&attendance.Status,
+			&attendance.UpdateteAt,
 		)
+
+		EventAttendance = append(EventAttendance, &attendance)
 	}
+
+	return EventAttendance, err
 }
 
+func (es *EventService) GetEvent(ctx context.Context, eventID uuid.UUID) (*models.Event, error) {
+	es.l.Info(" Fetching the event detailed data database operations")
+
+	var event *models.Event
+
+	query := `SELECT event_id,name,event_type,location,start_time,end_time FROM events WHERE event_id = $1`
+
+	err := es.db.QueryRowContext(ctx, query, eventID).Scan(&event)
+	if err != nil {
+		return nil, err
+	}
+	return event, nil
+}
 
 /*
 func (es *EventService) CreateBulkInsert(ctx context.Context, txs pgx.Tx, attendances []models.Attendance) error {
