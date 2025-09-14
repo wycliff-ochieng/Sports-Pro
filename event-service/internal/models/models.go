@@ -37,6 +37,17 @@ type CreateEventReq struct {
 	EndTime   time.Time
 }
 
+type AttendanceResponse struct {
+	UserID      uuid.UUID
+	FirstName   string
+	LastName    string
+	EventStatus string
+	Email       string
+}
+
+type EventDetails struct {
+}
+
 func NewEvent(teamID uuid.UUID, name string, eventype string, Location string, start, end time.Time) (*Event, error) {
 	return &Event{
 		TeamID:    teamID,
