@@ -13,7 +13,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/wycliff-ochieng/internal/database"
 	"github.com/wycliff-ochieng/internal/models"
-	"github.com/wycliff-ochieng/sports-proto/team_grpc/team_proto"
+	"github.com/wycliff-ochieng/sports-common-package/team_grpc/team_proto"
+	"github.com/wycliff-ochieng/sports-common-package/user_grpc/user_proto"
 )
 
 var (
@@ -32,13 +33,15 @@ type Events interface {
 type EventService struct {
 	db         database.DBInterface
 	teamClient team_proto.TeamRPCClient
+	userClient user_proto.UserServiceRPCClient
 	l          *slog.Logger
 }
 
-func NewEventService(db database.DBInterface, teamClient team_proto.TeamRPCClient) *EventService {
+func NewEventService(db database.DBInterface, teamClient team_proto.TeamRPCClient, userCllient user_proto.UserServiceRPCClient) *EventService {
 	return &EventService{
 		db:         db,
 		teamClient: teamClient,
+		userClient: userCllient,
 	}
 }
 
@@ -217,7 +220,7 @@ func (es *EventService) CreateAttendanceInsert(ctx context.Context, tx *sql.Tx, 
 
 }
 
-func (es *EventService) GetTeamEvents(ctx context.Context, eventID uuid.UUID, reqUserID uuid.UUID) (*models.Event, error) {
+func (es *EventService) GetTeamEvents(ctx context.Context, eventID uuid.UUID, reqUserID uuid.UUID) (*models.EventDetails, error) {
 	es.l.Info("getting a single event details, ")
 
 	query := `SELECT teamID FROM events WHERE eventID=$1`
@@ -262,6 +265,7 @@ func (es *EventService) GetTeamEvents(ctx context.Context, eventID uuid.UUID, re
 		return nil, err
 	}
 
+	//call get event attendace
 	attendanceList, err := es.GetAttendanceList(ctx, eventID)
 	if err != nil {
 		es.l.Error("")
@@ -269,26 +273,42 @@ func (es *EventService) GetTeamEvents(ctx context.Context, eventID uuid.UUID, re
 		return nil, err
 	}
 
-	//call get event attendace
-
-	//eventQuery := `SELECT e.event_id,e.team_id,e.name, e.event_type,e.location,e.start_time,e.end_time , at.user_id, at.status FROM events e FULL OUTER JOIN
-	//attendance at ON e.event_id = at.event_id
-	//WHERE eventID = $1`
-	//attendanceQuery := `SELECT user_id,status FROM attendance WHERE event_id=$1`
-
-	//err = es.db.QueryRowContext(ctx,eventQuery,eventID).Scan(&membersInfo)
-	//if err != nil{
-	//	es.l.Error("issue querying the event details")
-	//}
-
 	userIDs := make([]string, 0, len(attendanceList))
 	for _, record := range attendanceList {
 		userIDs = append(userIDs, record.UserID.String())
 	}
 
-	var userIDs []string
+	//gRPC data enrichment
+	profileReq := &user_proto.GetUserRequest{
+		Userid: userIDs,
+	}
+
+	profileRes, err := es.userClient.GetUserProfiles(ctx, profileReq)
+	if err != nil {
+		es.l.Info("batch fetching user profiles for attendance list and event detail enrichment")
+		return nil, err
+	}
+
+	userProfilesMap := profileRes.Profiles
+
+	var finalAttendanceList []models.AttendanceResponse
+
+	finalAttendanceList = make([]models.AttendanceResponse, len(attendanceList))
+
+	for _,attendee := range attendanceList {
+		profile,found := userProfilesMap[attendee.UserID.String()]
+		if !found{
+			es.l.Error("No such user in user service")
+		}
+
+		enrichedList := models.EventDetails{
+			EventID: ,
+		}
+	}
+
+	//var userIDs []string
 	//for _, ID := range{}
-	return &models.Event{
+	return &models.EventDetails{
 		//TeamID: membersInfo.TeamId,
 	}, nil
 }
@@ -324,15 +344,18 @@ func (es *EventService) GetAttendanceList(ctx context.Context, eventID uuid.UUID
 func (es *EventService) GetEvent(ctx context.Context, eventID uuid.UUID) (*models.Event, error) {
 	es.l.Info(" Fetching the event detailed data database operations")
 
-	var event *models.Event
+	var event models.Event
 
 	query := `SELECT event_id,name,event_type,location,start_time,end_time FROM events WHERE event_id = $1`
 
-	err := es.db.QueryRowContext(ctx, query, eventID).Scan(&event)
+	err := es.db.QueryRowContext(ctx, query, eventID).Scan(
+		&event.eventID,
+		&event.
+	)
 	if err != nil {
 		return nil, err
 	}
-	return event, nil
+	return &event, nil
 }
 
 /*
