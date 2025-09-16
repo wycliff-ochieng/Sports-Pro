@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/internal/service"
 	auth "github.com/wycliff-ochieng/sports-proto/middleware"
@@ -60,4 +62,39 @@ func (eh *EventHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&event)
+}
+
+// GET ::  /api/events/{eventUUID}
+func (eh *EventHandler) GetEventDet(w http.ResponseWriter, r *http.Request) {
+	eh.logger.Println("Get Event details for a single event")
+
+	vars := mux.Vars(r)
+
+	ctx := r.Context()
+
+	eventIDStr := vars["eventUUID"]
+
+	eventID, err := uuid.Parse(eventIDStr)
+	if err != nil {
+		fmt.Printf("failed to convert string to uuid : 5v", err)
+	}
+
+	reqUSerID, err := auth.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		eh.logger.Fatalf("Failed to fetch userUUID from request context: %v", err)
+		http.Error(w, "request context failed to provide USERID", http.StatusExpectationFailed)
+		return
+	}
+
+	eventDetails, err := eh.es.GetTeamEvents(ctx, eventID, reqUSerID)
+	if err != nil {
+		log.Println("check service layer transactions-> there is an issue there")
+		http.Error(w, "issue with get teams details function in service layer", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&eventDetails)
+
 }
