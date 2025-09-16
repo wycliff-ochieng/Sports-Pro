@@ -295,22 +295,43 @@ func (es *EventService) GetTeamEvents(ctx context.Context, eventID uuid.UUID, re
 
 	finalAttendanceList = make([]models.AttendanceResponse, len(attendanceList))
 
-	for _,attendee := range attendanceList {
-		profile,found := userProfilesMap[attendee.UserID.String()]
-		if !found{
+	for _, attendee := range attendanceList {
+		profile, found := userProfilesMap[attendee.UserID.String()]
+		if !found {
 			es.l.Error("No such user in user service")
+			continue
 		}
 
-		enrichedList := models.EventDetails{
-			EventID: ,
+		UserIDUUID, err := uuid.Parse(profile.Userid)
+		if err != nil {
+			es.l.Error("cannot convert to uuid")
 		}
+
+		attendanceResp := models.AttendanceResponse{
+			UserID:    UserIDUUID,
+			FirstName: profile.Firstname,
+			LastName:  profile.Lastname,
+			Email:     profile.Email,
+			//TeamID: attendee.EventID,
+			EventStatus: attendee.Status,
+		}
+
+		finalAttendanceList = append(finalAttendanceList, attendanceResp)
+	}
+
+	enrichedList := models.EventDetails{
+		EventID:    event.ID,
+		TeamID:     event.TeamID,
+		EventName:  event.Title,
+		Location:   event.Location,
+		StartTime:  event.StartTime,
+		EndTime:    event.EndTime,
+		Attendance: finalAttendanceList,
 	}
 
 	//var userIDs []string
 	//for _, ID := range{}
-	return &models.EventDetails{
-		//TeamID: membersInfo.TeamId,
-	}, nil
+	return &enrichedList, nil
 }
 
 func (es *EventService) GetAttendanceList(ctx context.Context, eventID uuid.UUID) ([]*models.Attendance, error) {
@@ -349,8 +370,12 @@ func (es *EventService) GetEvent(ctx context.Context, eventID uuid.UUID) (*model
 	query := `SELECT event_id,name,event_type,location,start_time,end_time FROM events WHERE event_id = $1`
 
 	err := es.db.QueryRowContext(ctx, query, eventID).Scan(
-		&event.eventID,
-		&event.
+		&event.ID,
+		&event.Title,
+		&event.EventType,
+		&event.Location,
+		&event.StartTime,
+		&event.EndTime,
 	)
 	if err != nil {
 		return nil, err
