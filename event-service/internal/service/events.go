@@ -383,6 +383,12 @@ func (es *EventService) GetEvent(ctx context.Context, eventID uuid.UUID) (*model
 	return &event, nil
 }
 
+func (es *EventService) UpdateEventDetails(ctx context.Context, reqUserID uuid.UUID, teamID uuid.UUID, eventID uuid.UUID) (*models.EventDetails, error) {
+	es.l.Info("PUT operation for the event service")
+
+	return nil, nil
+}
+
 /*
 func (es *EventService) CreateBulkInsert(ctx context.Context, txs pgx.Tx, attendances []models.Attendance) error {
 	es.l.Info("Successfully starting bulk insert .... ")
