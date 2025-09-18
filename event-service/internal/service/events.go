@@ -383,8 +383,15 @@ func (es *EventService) GetEvent(ctx context.Context, eventID uuid.UUID) (*model
 	return &event, nil
 }
 
-func (es *EventService) UpdateEventDetails(ctx context.Context, reqUserID uuid.UUID, teamID uuid.UUID, eventID uuid.UUID) (*models.EventDetails, error) {
+func (es *EventService) UpdateEventDetails(ctx context.Context, reqUserID uuid.UUID, teamID uuid.UUID, eventID uuid.UUID, toUpdate models.UpdateEventReq) (*models.EventDetails, error) {
 	es.l.Info("PUT operation for the event service")
+
+	txs, err := es.db.BeginTx(ctx, nil)
+	if err != nil {
+		es.l.Error("Error while trying to begin transactions")
+	}
+
+	defer txs.Rollback()
 
 	return nil, nil
 }
