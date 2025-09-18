@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 
+	//"github.com/jackc/pgx/v5"
 	"github.com/wycliff-ochieng/internal/config"
 
 	_ "github.com/lib/pq"
@@ -18,6 +19,7 @@ type DBInterface interface {
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	BeginTx(ctx context.Context, opt *sql.TxOptions) (*sql.Tx, error)
+	//BeginPgxTx(ctx context.Context) (pgx.Tx, error)
 }
 
 type PostgresDB struct {
@@ -73,3 +75,7 @@ func (p *PostgresDB) ExecContext(ctx context.Context, query string, args ...inte
 func (p *PostgresDB) BeginTx(ctx context.Context, opt *sql.TxOptions) (*sql.Tx, error) {
 	return p.db.BeginTx(ctx, opt)
 }
+
+//func (p *PostgresDB) BeginPgxTx(ctx context.Context) (pgx.Tx, error) {
+//	return p.db.BeginPgxTx(ctx)
+//}
