@@ -420,10 +420,39 @@ func (es *EventService) UpdateEventDetails(ctx context.Context, reqUserID uuid.U
 	}
 
 	//perform database write
+	//updatedEvent,err := es.UpdateEvent
+	query := `UPDATE event SET  name=$1,location=$2,start_time=$3,end_time=$4 WHERE event_id=$1`
 
 	//if isAuthorized := rolesResp.
 
 	return nil, nil
+}
+
+func (es *EventService) UpdateEvent(ctx context.Context, eventID string, name string, location string, start time.Time, end time.Time) (*models.Event, error) {
+	es.l.Info("update team details database write")
+
+	var updateEvent models.Event
+
+	query := `UPDATE events SET name=$1,location=$2,start_time=$3,end_time=$4 WHERE event_id=$5
+	RETURNING event_id,team_id,name,event_type,location,start_time,endtime`
+
+	err := es.db.QueryRowContext(ctx, query, name, location, start, end).Scan(
+		&updateEvent.Title,
+		&updateEvent.EventType,
+		&updateEvent.Location,
+		&updateEvent.StartTime,
+		&updateEvent.EndTime,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			es.l.Error("")
+			return nil, ErrNotFound
+
+		}
+		return nil, fmt.Errorf("other database errors: %v", err)
+	}
+	return &updateEvent, nil
 }
 
 /*
