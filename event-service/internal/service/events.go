@@ -383,7 +383,7 @@ func (es *EventService) GetEvent(ctx context.Context, eventID uuid.UUID) (*model
 	return &event, nil
 }
 
-func (es *EventService) UpdateEventDetails(ctx context.Context, reqUserID uuid.UUID, teamID uuid.UUID, eventID uuid.UUID, toUpdate models.UpdateEventReq) (*models.EventDetails, error) {
+func (es *EventService) UpdateEventDetails(ctx context.Context, reqUserID uuid.UUID, teamID uuid.UUID, eventID uuid.UUID, toUpdate models.UpdateEventReq) (*models.Event, error) {
 	es.l.Info("PUT operation for the event service")
 
 	txs, err := es.db.BeginTx(ctx, nil)
@@ -421,14 +421,17 @@ func (es *EventService) UpdateEventDetails(ctx context.Context, reqUserID uuid.U
 
 	//perform database write
 	//updatedEvent,err := es.UpdateEvent
-	query := `UPDATE event SET  name=$1,location=$2,start_time=$3,end_time=$4 WHERE event_id=$1`
+	//query := `UPDATE event SET  name=$1,location=$2,start_time=$3,end_time=$4 WHERE event_id=$1`
+	updatedEvent, err := es.UpdateEvent(ctx, team.ID, toUpdate.Title, toUpdate.Location, toUpdate.StartTime, toUpdate.EndTime)
+	if err != nil {
+		//
+		return nil, err
+	}
 
-	//if isAuthorized := rolesResp.
-
-	return nil, nil
+	return updatedEvent, nil
 }
 
-func (es *EventService) UpdateEvent(ctx context.Context, eventID string, name string, location string, start time.Time, end time.Time) (*models.Event, error) {
+func (es *EventService) UpdateEvent(ctx context.Context, eventID uuid.UUID, name string, location string, start time.Time, end time.Time) (*models.Event, error) {
 	es.l.Info("update team details database write")
 
 	var updateEvent models.Event
