@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -25,6 +24,7 @@ func NewEventHandler(l *log.Logger, es *service.EventService) *EventHandler {
 	}
 }
 
+// POST /api/event/add
 func (eh *EventHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	eh.logger.Println("create event handle now firing up....")
 
@@ -76,7 +76,7 @@ func (eh *EventHandler) GetEventDet(w http.ResponseWriter, r *http.Request) {
 
 	eventID, err := uuid.Parse(eventIDStr)
 	if err != nil {
-		fmt.Printf("failed to convert string to uuid : 5v", err)
+		log.Fatalf("failed to convert string to uuid : 5v", err)
 	}
 
 	reqUSerID, err := auth.GetUserUUIDFromContext(ctx)
@@ -97,4 +97,48 @@ func (eh *EventHandler) GetEventDet(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&eventDetails)
 
+}
+
+func (eh *EventHandler) UpdateEventDetails(w http.ResponseWriter, r *http.Request) {
+	eh.logger.Println("updating team event Details")
+
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+
+	eventIDStr := vars["eventID"]
+	teamIDStr := vars["userID"]
+	eventID, err := uuid.Parse(eventIDStr)
+	if err != nil {
+		log.Fatalf("error changing to uuid")
+	}
+
+	reqUserID, err := auth.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		http.Error(w, "error fetching userID from context", http.StatusInternalServerError)
+		return
+	}
+
+	teamID, err := uuid.Parse(teamIDStr)
+	if err != nil {
+		log.Fatalf("issue changing user ID to uuid")
+	}
+
+	var update models.UpdateEventReq
+
+	err = json.NewDecoder(r.Body).Decode(&update)
+	if err != nil {
+		http.Error(w, "issue decoding request data", http.StatusInternalServerError)
+		return
+	}
+
+	updateEvent, err := eh.es.UpdateEventDetails(ctx, reqUserID, teamID, eventID, update)
+	if err != nil {
+		http.Error(w, "Error updating events from service layer", http.StatusExpectationFailed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&updateEvent)
 }
