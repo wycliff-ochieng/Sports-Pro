@@ -393,6 +393,36 @@ func (es *EventService) UpdateEventDetails(ctx context.Context, reqUserID uuid.U
 
 	defer txs.Rollback()
 
+	team, err := es.GetEvent(ctx, eventID)
+	if err != nil {
+		es.l.Error("failed to get event details")
+		return nil, err
+	}
+
+	teamMembersReq := &team_proto.GetTeamMembershipRequest{
+		UserId: []string{reqUserID.String()},
+		TeamId: team.TeamID.String(),
+	}
+
+	membersResp, err := es.teamClient.CheckTeamMembership(ctx, teamMembersReq)
+	if err != nil {
+		es.l.Error("Error checking team membership response")
+		return nil, err
+	}
+
+	userMembersMap := membersResp.Members[reqUserID.String()]
+
+	isAuthorized := userMembersMap.Role == "coach" || userMembersMap.Role == "manager"
+
+	if !isAuthorized {
+		es.l.Error("User NOT allowed to update Event details")
+		return nil, ErrForbidden
+	}
+
+	//perform database write
+
+	//if isAuthorized := rolesResp.
+
 	return nil, nil
 }
 
