@@ -74,7 +74,7 @@ func (ts *TeamService) GetMyTeams(ctx context.Context, userID uuid.UUID) (*[]mod
 	var teams []models.TeamInfo
 	//	var members models.TeamMembers
 
-	query := `SELECT t.id,t.name,t.sports,t.description,t.createdat,tm.Role,tm.joined FROM teams t LEFT JOIN team_members tm ON tm.user_id = $1 WHERE t.id = tm.team_id`
+	query := `SELECT t.id,t.name,t.sports,tm.Role,t.description,t.createdat,tm.joinedat FROM teams t  JOIN team_members tm ON  t.id = tm.team_id WHERE tm.user_id = $1`
 
 	rows, err := ts.db.QueryContext(ctx, query, userID)
 	if err != nil {
