@@ -13,8 +13,8 @@ import (
 	"net/http"
 	"os"
 
-	auth "github.com/wycliff-ochieng/sports-proto/middleware"
-	"github.com/wycliff-ochieng/sports-proto/user_grpc/user_proto"
+	auth "github.com/wycliff-ochieng/sports-common-package/middleware"
+	"github.com/wycliff-ochieng/sports-common-package/user_grpc/user_proto"
 
 	"github.com/gorilla/mux"
 	"google.golang.org/grpc"
@@ -82,13 +82,14 @@ func (s *APIServer) Run() {
 	createTeam := router.Methods("POST").Subrouter()
 	createTeam.HandleFunc("/api/teams", th.CreateTeam)
 	createTeam.Use(authMiddleware)
-	createTeam.Use(auth.RequireRole("coach", "manager"))
+	createTeam.Use(auth.RequireRole("coach", "manager", "player"))
 
 	getTeams := router.Methods("GET").Subrouter()
 	getTeams.HandleFunc("/api/get/teams", th.GetTeams)
 	getTeams.Use(authMiddleware)
 
 	getTeamsByID := router.Methods("GET").Subrouter()
+	getTeamsByID.Use(authMiddleware)
 	getTeamsByID.HandleFunc("/api/team/{team_id}", th.GetTeamsByID)
 
 	updateTeam := router.Methods("PUT").Subrouter()
