@@ -11,9 +11,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/wycliff-ochieng/sports-proto/user_grpc/user_proto"
-
 	"github.com/google/uuid"
+	"github.com/wycliff-ochieng/sports-common-package/user_grpc/user_proto"
 	//middleware "github.com/wycliff-ochieng/common_packages"
 )
 
@@ -75,7 +74,7 @@ func (ts *TeamService) GetMyTeams(ctx context.Context, userID uuid.UUID) (*[]mod
 	var teams []models.TeamInfo
 	//	var members models.TeamMembers
 
-	query := `SELECT t.id,t.name,t.sport,t.description,t.createdat,tm.Role,tm.joined FROM teams t LEFT JOIN team_members ON tm.user_id = $1 WHERE t.id = tm.team_id`
+	query := `SELECT t.id,t.name,t.sports,t.description,t.createdat,tm.Role,tm.joined FROM teams t LEFT JOIN team_members tm ON tm.user_id = $1 WHERE t.id = tm.team_id`
 
 	rows, err := ts.db.QueryContext(ctx, query, userID)
 	if err != nil {
@@ -320,7 +319,7 @@ func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, 
 // repo service for udating team
 func (ts *TeamService) UpdateTeam(ctx context.Context, teamID uuid.UUID, updateData models.UpdateTeamReq) (*models.Team, error) {
 	var team models.Team
-	query := `UPDATE teams SET name=$1, description=$, updateat=Now() WHERE team_id=$3
+	query := `UPDATE teams SET name=$1, description=$2, updateat=Now() WHERE team_id=$3
 	RETURNING name,sport,description,createdat,updatedat`
 
 	err := ts.db.QueryRowContext(ctx, query, updateData.Name, updateData.Description, teamID).Scan(&team.TeamID, &team.Name, &team.Sport, &team.Description, &team.Createdat, &team.Updatedat)
