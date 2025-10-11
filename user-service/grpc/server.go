@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/wycliff-ochieng/internal/service"
-	grpc "github.com/wycliff-ochieng/sports-proto/user_grpc/user_proto"
+	grpc "github.com/wycliff-ochieng/sports-common-package/user_grpc/user_proto"
 )
 
 type Server struct {
