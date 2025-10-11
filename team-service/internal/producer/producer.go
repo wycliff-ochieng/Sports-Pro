@@ -43,7 +43,7 @@ func (c *UpdateTeam) PublishTeamUpdate(ctx context.Context, teamData interface{}
 	}, c.deliverych)
 	log.Println(">>successfully published event to the queue")
 	fmt.Println("Published updateuserprofile event onto the queue")
-	return fmt.Errorf("failed to publish user creation data: %s", err)
+	return err //fmt.Errorf("failed to publish user creation data: %s", err)
 }
 
 func InitKafkaProducer() (*kafka.Producer, error) {
