@@ -14,14 +14,14 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/gorilla/mux"
+	rpc "github.com/wycliff-ochieng/grpc"
 	"github.com/wycliff-ochieng/internal/config"
 	"github.com/wycliff-ochieng/internal/consumer"
 	"github.com/wycliff-ochieng/internal/database"
 	"github.com/wycliff-ochieng/internal/handlers"
 	internal "github.com/wycliff-ochieng/internal/producer"
 	"github.com/wycliff-ochieng/internal/service"
-	rpc "github.com/wycliff-ochieng/user_grpc"
-	"github.com/wycliff-ochieng/user_grpc/user_proto"
+	"github.com/wycliff-ochieng/sports-common-package/user_grpc/user_proto"
 )
 
 type APIServer struct {
@@ -104,7 +104,7 @@ func (s *APIServer) Run() {
 	grpcServ := grpc.NewServer()
 
 	grpcServer := &rpc.Server{
-		Service: &service.UserService{},
+		Service: us,
 		Logger:  l,
 	}
 
