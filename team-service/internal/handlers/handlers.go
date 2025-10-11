@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"time"
 
+	auth "github.com/wycliff-ochieng/sports-common-package/middleware"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
@@ -83,7 +85,7 @@ func (h *TeamHandler) GetTeams(w http.ResponseWriter, r *http.Request) {
 		http.Error(w,"No ID for this User, not allowed", http.StatusNotFound)
 		return
 	}*/
-	userUUID, err := middleware.GetUserUUIDFromContext(ctx)
+	userUUID, err := auth.GetUserUUIDFromContext(ctx)
 	if err != nil {
 		http.Error(w, "UUID for the user is missing", http.StatusBadRequest)
 		h.l.Printf("GET USER UUID FROM CONTEXT ERROR: %v", err)
@@ -113,27 +115,17 @@ func (h *TeamHandler) GetTeamsByID(w http.ResponseWriter, r *http.Request) {
 
 	teamID, err := uuid.Parse(teamIDStr)
 
-	userID, err := middleware.GetUserUUIDFromContext(ctx)
+	userID, err := auth.GetUserUUIDFromContext(ctx)
 	if err != nil {
 		http.Error(w, "Error: userID validation failed", http.StatusExpectationFailed)
+		h.l.Printf("ERROR: %s", err)
 		return
 	}
+	log.Println(userID, teamID)
 
-	//	roles, err := middleware.GetUserRoleFromContext(ctx)
-	//	if err != nil {
-	//		http.Error(w, "Error: no role found for this user", http.StatusNotFound)
-	//		return
-	//	}
-
-	/*	isMember,err := h.t.IsTeamMember(ctx,userID,teamID)
-		if err != nil{
-			return false,err
-		}
-		if !isMember{
-			return nil,http.StatusNotFound
-		}*/
-	team, err := h.t.GetTeamDetails(ctx, teamID, userID) //change team id back to UUID not string
+	team, err := h.t.GetTeamDetails(ctx, userID, teamID) //change team id back to UUID not string
 	if err != nil {
+		log.Printf("error due to: %s", err)
 		http.Error(w, "Error: ", http.StatusBadRequest)
 		return
 	}
@@ -141,21 +133,6 @@ func (h *TeamHandler) GetTeamsByID(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&team)
 
-	/*
-		if roles == "COACH" || roles == "MANAGER" {
-			team, err := h.t.GetTeamByID(ctx, teamID, userID)
-			if err != nil {
-				http.Error(w, "Error: ", http.StatusBadRequest)
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(&team)
-		} else {
-
-			log.Fatal("Not allowed to view all the teams")
-		}
-	*/
 }
 
 // GET :: api/teamid/members -> get a list/roster of members of a certain team
@@ -178,7 +155,7 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := middleware.GetUserUUIDFromContext(ctx)
+	userID, err := auth.GetUserUUIDFromContext(ctx)
 	if err != nil {
 		http.Error(w, "Error fetching UUID from context", http.StatusNotFound)
 		return
@@ -222,7 +199,7 @@ func (h *TeamHandler) AddTeamMember(w http.ResponseWriter, r *http.Request) {
 
 	//userID from context
 
-	userID, err := middleware.GetUserUUIDFromContext(ctx)
+	userID, err := auth.GetUserUUIDFromContext(ctx)
 	if err != nil {
 		log.Fatalf("UserID not found in context:%v", err)
 		return
@@ -264,7 +241,7 @@ func (h *TeamHandler) GetTeamRoster(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	userID, err := middleware.GetUserUUIDFromContext(ctx)
+	userID, err := auth.GetUserUUIDFromContext(ctx)
 	if err != nil {
 		http.Error(w, "failed to get userID from context", http.StatusFailedDependency)
 		return
@@ -305,7 +282,7 @@ func (h *TeamHandler) UpdateTeamMember(w http.ResponseWriter, r *http.Request) {
 
 	//get req userId from req context
 
-	userID, err := middleware.GetUserUUIDFromContext(ctx)
+	userID, err := auth.GetUserUUIDFromContext(ctx)
 	if err != nil {
 		http.Error(w, "failed to get userID from context", http.StatusNotFound)
 	}
