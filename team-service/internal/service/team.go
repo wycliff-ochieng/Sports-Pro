@@ -109,8 +109,14 @@ func (ts *TeamService) GetMyTeams(ctx context.Context, userID uuid.UUID) (*[]mod
 // single team for a single user  ->  change this to repo service - > team details
 func (ts *TeamService) GetTeamByID(ctx context.Context, teamID uuid.UUID) (*models.Team, error) {
 	var AllTeams models.Team
-	query := `SELECT * FROM teams WHERE team_id=$1`
-	err := ts.db.QueryRowContext(ctx, query, teamID).Scan(&AllTeams)
+	query := `SELECT * FROM teams WHERE id=$1`
+	err := ts.db.QueryRowContext(ctx, query, teamID).Scan(
+		&AllTeams.TeamID,
+		&AllTeams.Name,
+		&AllTeams.Sport,
+		&AllTeams.Description,
+		&AllTeams.Createdat,
+		&AllTeams.Updatedat)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +149,7 @@ func (ts *TeamService) IsTeam(ctx context.Context, teamID uuid.UUID) (bool, erro
 // repo service
 func (ts *TeamService) GetTeamsMembers(ctx context.Context, teamID uuid.UUID) ([]*models.TeamMembers, error) {
 	var teamMembers []*models.TeamMembers
-	query := `SELECT * FROM team_members WHERE team_id=$1`
+	query := `SELECT team_id,role,joinedat,user_id FROM team_members WHERE team_id=$1`
 	rows, err := ts.db.QueryContext(ctx, query, teamID)
 	if err != nil {
 		log.Fatalf("Error: issue with fetchiing team members: %v", err)
@@ -155,9 +161,9 @@ func (ts *TeamService) GetTeamsMembers(ctx context.Context, teamID uuid.UUID) ([
 
 		err := rows.Scan(
 			&members.TeamID,
-			&members.UserID,
 			&members.Role,
 			&members.Joinedat,
+			&members.UserID,
 		)
 		if err != nil {
 			log.Fatalf("Error scanning rows: %v", err)
@@ -182,6 +188,7 @@ func (ts *TeamService) GetTeamDetails(ctx context.Context, reqUserID uuid.UUID, 
 		log.Fatalf("Error cecking membership: %v", err)
 		return nil, err
 	}
+	log.Println(isTeamMember, "reqUSerID:", reqUserID, "teamID", teamID)
 
 	if !isTeamMember {
 		log.Fatal("Not Team Member :Not allowed to get team details")
@@ -285,7 +292,7 @@ func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, 
 		return nil, err
 	}
 	//check roles
-	isUserAuthorized := role == "COACH" || role == "MANAGER"
+	isUserAuthorized := role == "coach" || role == "manager" || role == "player"
 	if !isUserAuthorized {
 		log.Fatal("ERROR : user is not Allowed to edit")
 	}
@@ -296,7 +303,7 @@ func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, 
 		if err == sql.ErrNoRows {
 			return nil, ErrNotFound
 		}
-		log.Fatal("Fialed to update team deatils")
+		log.Printf("Failed to update team details: %s", err)
 		return nil, err
 	}
 
@@ -310,6 +317,7 @@ func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, 
 	//TODO LATER :: produce the updateTeam Event to a Kafka topic  -> High Priority
 	err = ts.prod.PublishTeamUpdate(ctx, updateTeam.TeamID)
 	if err != nil {
+		log.Printf("kafka error: %s", err)
 		return nil, fmt.Errorf("error publishing event to topic")
 	}
 
@@ -319,10 +327,10 @@ func (ts *TeamService) UpdateTeamDetails(ctx context.Context, teamID uuid.UUID, 
 // repo service for udating team
 func (ts *TeamService) UpdateTeam(ctx context.Context, teamID uuid.UUID, updateData models.UpdateTeamReq) (*models.Team, error) {
 	var team models.Team
-	query := `UPDATE teams SET name=$1, description=$2, updateat=Now() WHERE team_id=$3
-	RETURNING name,sport,description,createdat,updatedat`
+	query := `UPDATE teams SET name=$1,sports=$2, description=$3, updatedat=Now() WHERE id=$4
+	RETURNING id,name,sports,description,createdat,updatedat`
 
-	err := ts.db.QueryRowContext(ctx, query, updateData.Name, updateData.Description, teamID).Scan(&team.TeamID, &team.Name, &team.Sport, &team.Description, &team.Createdat, &team.Updatedat)
+	err := ts.db.QueryRowContext(ctx, query, updateData.Name, updateData.Sport, updateData.Description, teamID).Scan(&team.TeamID, &team.Name, &team.Sport, &team.Description, &team.Createdat, &team.Updatedat)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +340,7 @@ func (ts *TeamService) UpdateTeam(ctx context.Context, teamID uuid.UUID, updateD
 func (ts *TeamService) GetRoleForUser(ctx context.Context, teamID uuid.UUID, userID uuid.UUID) (string, error) {
 	var role string
 
-	query := `SELECT FROM team_members WHERE team_id = $1 AND user_id=$2`
+	query := `SELECT role FROM team_members WHERE team_id = $1 AND user_id=$2`
 
 	err := ts.db.QueryRowContext(ctx, query, teamID, userID).Scan(&role)
 	if err != nil {
