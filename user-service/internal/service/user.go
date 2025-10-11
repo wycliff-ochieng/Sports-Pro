@@ -210,19 +210,26 @@ func (u *UserService) GetUserProfileByUUID(ctx context.Context, userUUID string)
 }
 
 func (u *UserService) GetUserProfilesByUUIDs(ctx context.Context, userUUID []string) ([]*models.Profile, error) {
+
+	log.Println("TOUCHING THE GETUSERPROFILES FOR GRPC CALLS")
 	var profiles []*models.Profile
 
-	query := `SELECT id FROM user_profiles`
+	query := `SELECT userid,firstname,lastname,email,createdat,updatedat FROM user_profiles`
+
+	log.Println("SQL QUERY EXECUTION")
 
 	rows, err := u.db.QueryContext(ctx, query)
 	if err != nil {
 		//handle error
+		log.Printf("SOMETHING HERE BREAKING: %s", err)
 		return nil, fmt.Errorf("error querying fetching profiles from DB: %v", err)
 	}
 	defer rows.Close()
 
+	log.Println("FOR LOOP < NOW SCANNING LOOPS")
+
 	for rows.Next() {
-		var profile *models.Profile
+		var profile models.Profile
 
 		err := rows.Scan(
 			&profile.UserID,
@@ -236,7 +243,7 @@ func (u *UserService) GetUserProfilesByUUIDs(ctx context.Context, userUUID []str
 			return nil, fmt.Errorf("Error Scanning through profile lists:%v", err)
 		}
 
-		profiles = append(profiles, profile)
+		profiles = append(profiles, &profile)
 
 	}
 	return profiles, nil
