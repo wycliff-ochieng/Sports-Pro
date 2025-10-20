@@ -1,12 +1,13 @@
 package handlers
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
 	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/internal/service"
-	auth "github.com/wycliff-ochieng/sports-common-package"
+	auth "github.com/wycliff-ochieng/sports-common-package/middleware"
 )
 
 type WorkoutHandler struct {
@@ -34,9 +35,29 @@ func (h *WorkoutHandler) CreateWorkout(w http.ResponseWriter, r *http.Request) {
 
 	//http.ServeFile()
 
+	var WorkOutReq CreateWorkoutReq
+
 	ctx := r.Context()
 
-	userID, err := auth.Get
+	userID, err := auth.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		http.Error(w, "issue with getting userID from middleware", http.StatusInternalServerError)
+		return
+	}
+
+	//request body
+	if err := json.NewDecoder(r.Body).Decode(&WorkOutReq); err != nil {
+		http.Error(w, "issue with unmarshaling the incoming request", http.StatusInternalServerError)
+		return
+	}
+
+	//validation
+	if WorkOutReq.Name == " " || WorkOutReq.Description == " " || len(WorkOutReq.Exercises) == 0 {
+		http.Error(w, "please enter valid data", http.StatusExpectationFailed)
+		return
+	}
+
+	//call service layer
 
 	return
 }
