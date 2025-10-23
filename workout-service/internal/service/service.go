@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 
@@ -57,7 +58,7 @@ func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID,
 	}
 
 	//check the uuids from the exercise
-	excercisIDs := []uuid.UUIDs{}
+	//excercisIDs := []uuid.UUIDs{}
 
 	//begin transaction
 	txs, err := s.db.BeginTx(ctx, nil)
@@ -118,12 +119,46 @@ func (s *WorkoutService) CreateExecrciseRepo(ctx context.Context, tx *sql.Tx, ex
 		return nil
 	}
 
-	queryStr := `INSERT INTO workout_exercise`
+	sqlStr := `INSERT INTO workout_exercise(id,name,description,instructions,createdby) VALUES($1,$2,$3,$4,$5)`
 
 	vals := []interface{}{}
 
-	for _, exercise := range exercises {
-		
+	for i, exercise := range exercises {
+		placeHolder1 := i*5 + 1
+		placeHolder2 := i*5 + 2
+		placeHolder3 := i*5 + 3
+		placeHolder4 := i*5 + 4
+		placeHolder5 := i*5 + 5
+
+		placeholder := fmt.Sprintf("(%d,%d,%d,%d,%d)", placeHolder1, placeHolder2, placeHolder3, placeHolder4, placeHolder5)
+
+		sqlStr += placeholder
+
+		vals = append(vals, exercise.ID, exercise.Name, exercise.Description, exercise.CreatedBy)
+	}
+
+	sqlStr = strings.TrimSuffix(sqlStr, ",")
+
+	stmt, err := tx.PrepareContext(ctx, sqlStr) //method that creates a prepared context for later execution
+	if err != nil {
+		log.Printf("handle errors from the %s", err)
+		return err
+	}
+
+	result, err := stmt.ExecContext(ctx, vals)
+	if err != nil {
+		//handle errors
+		log.Printf("issues getting results: %s", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		//handle errors
+		log.Printf("error in this Ops: %s", err)
+	}
+
+	if int(rowsAffected) != len(exercises) {
+		return fmt.Errorf("bulk insert mismatch, %s", err)
 	}
 	return nil
 }
