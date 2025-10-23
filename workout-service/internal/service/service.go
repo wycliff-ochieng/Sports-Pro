@@ -59,6 +59,17 @@ func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID,
 
 	//check the uuids from the exercise
 	//excercisIDs := []uuid.UUIDs{}
+	var wkout models.Exercise
+
+	exerciseID, err := s.CollectExerciseID(&wkout)
+	if err != nil {
+		//handle err
+	}
+
+	err = s.ValidateExerciseID(ctx, exerciseID)
+	if err != nil {
+		//handle err
+	}
 
 	//begin transaction
 	txs, err := s.db.BeginTx(ctx, nil)
@@ -66,30 +77,30 @@ func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID,
 		log.Printf("Error starting transactions: %s", err)
 	}
 
-	//var wkout models.Workout
-
-	//query := `INSERT INTO workout(name,category,description,created_by)  VALUES($1,$2,$3) RETERNING id`
-
-	//err = txs.QueryRowContext(ctx, query, workout).Scan(
-	//	&wkout.Name,
-	//	&wkout.Category,
-	//	&wkout.Description,
-	//)
-	if err != nil {
-		return nil, err
-	}
+	defer txs.Rollback()
 
 	//newWorkoutID := wkout.ID
 
-	exerciseQuery := `INSERT INTO workout_exercise() VALUES($1,$2,$3,$4)`
+	//exerciseQuery := `INSERT INTO workout_exercise() VALUES($1,$2,$3,$4)`
 
-	err = txs.QueryRowContext(ctx, exerciseQuery).Scan()
+	//err = txs.QueryRowContext(ctx, exerciseQuery).Scan()
 
-	//workout, err := s.CreateWorkoutRepo()
+	wkt, err := s.CreateWorkoutRepo(ctx, txs, workout)
+	if err != nil {
+		//handle error
+	}
 
-	defer txs.Rollback()
+	if err := s.CreateExecrciseRepo(ctx, txs, exerc); err != nil {
+		log.Printf("")
+	}
+	//if err !=
 
-	return nil, nil
+	return &models.WorkoutExerciseResponse{
+		WorkoutID:   wkt.ID,
+		Name:        wkt.Name,
+		ExcerciseID: exerc.ID,
+		//Order: ,
+	}, nil
 }
 
 func (s *WorkoutService) CreateWorkoutRepo(ctx context.Context, tx *sql.Tx, workout models.Workout) (*models.Workout, error) {
@@ -111,7 +122,7 @@ func (s *WorkoutService) CreateWorkoutRepo(ctx context.Context, tx *sql.Tx, work
 	return &createdWorkout, nil
 }
 
-func (s *WorkoutService) CreateExecrciseRepo(ctx context.Context, tx *sql.Tx, exercises []models.Exercise) error {
+func (s *WorkoutService) CreateExecrciseRepo(ctx context.Context, tx *sql.Tx, exercises []models.WorkoutExerciseResponse) error {
 
 	//bulk insert
 
@@ -134,7 +145,7 @@ func (s *WorkoutService) CreateExecrciseRepo(ctx context.Context, tx *sql.Tx, ex
 
 		sqlStr += placeholder
 
-		vals = append(vals, exercise.ID, exercise.Name, exercise.Description, exercise.CreatedBy)
+		vals = append(vals, exercise.WorkoutID, exercise.ExcerciseID, exercise.Order, exercise.Sets, exercise.Reps)
 	}
 
 	sqlStr = strings.TrimSuffix(sqlStr, ",")
@@ -159,6 +170,45 @@ func (s *WorkoutService) CreateExecrciseRepo(ctx context.Context, tx *sql.Tx, ex
 
 	if int(rowsAffected) != len(exercises) {
 		return fmt.Errorf("bulk insert mismatch, %s", err)
+	}
+	return nil
+}
+
+func (ws *WorkoutService) CollectExerciseID(*models.Exercise) ([]string, error) {
+	var exercises []models.Exercise
+
+	exerciseeUUIDs := make(map[string]struct{})
+	IDs := make([]string, 0, len(exerciseeUUIDs))
+	for _, exc := range exercises {
+		excUUID := exc.ID
+
+		//IDs := make([]string,0,len(exerciseeUUIDs))
+
+		IDs = append(IDs, excUUID.String())
+	}
+
+	return IDs, nil
+}
+
+func (ws *WorkoutService) ValidateExerciseID(ctx context.Context, exerciseID []string) error {
+
+	//exerciseUUID, err := uuid.Parse(exerciseID)
+
+	var exerciseUUID []uuid.UUID
+	for _, ID := range exerciseID {
+		uuid, err := uuid.Parse(ID)
+		if err != nil {
+			//handle err
+		}
+
+		exerciseUUID = append(exerciseUUID, uuid)
+	}
+
+	query := `SELECT COUNT(exerciseID) FROM exercise WHERE exerciseID = ANY($1::exerciseID[])`
+
+	err := ws.db.QueryRowContext(ctx, query, exerciseID) //.Scan(&)
+	if err != nil {
+		//handler error
 	}
 	return nil
 }
