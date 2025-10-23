@@ -26,6 +26,15 @@ type Exercise struct {
 	UpdatedOn   time.Time
 }
 
+type WorkoutExerciseResponse struct {
+	WorkoutID   uuid.UUID
+	Name        string
+	ExcerciseID uuid.UUID
+	Order       int32
+	Sets        int32
+	Reps        int32
+}
+
 type Media struct {
 	ID             uuid.UUID
 	ParentID       uuid.UUID
