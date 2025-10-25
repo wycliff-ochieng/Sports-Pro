@@ -34,7 +34,7 @@ func NewWorkoutService(db database.DBInterface, client user_proto.UserServiceRPC
 	}
 }
 
-func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID, workout models.Workout, exerc models.Exercise /*workout handlers.CreateWorkoutReq*/) (*models.WorkoutExerciseResponse, error) {
+func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID, name, category, description string, exerc models.Exercise /*workout models.Workout, exerc models.Exercise /*workout handlers.CreateWorkoutReq*/) (*models.WorkoutExerciseResponse, error) {
 
 	profilesReq := user_proto.GetUserRequest{
 		Userid: strings.Split(reqUserID.String(), ""), //strings.Split(reqUserID.String(), ""),
@@ -85,7 +85,7 @@ func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID,
 
 	//err = txs.QueryRowContext(ctx, exerciseQuery).Scan()
 
-	wkt, err := s.CreateWorkoutRepo(ctx, txs, workout)
+	wkt, err := s.CreateWorkoutRepo(ctx, txs, name, category, description, reqUserID)
 	if err != nil {
 		//handle error
 	}
@@ -103,13 +103,13 @@ func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID,
 	}, nil
 }
 
-func (s *WorkoutService) CreateWorkoutRepo(ctx context.Context, tx *sql.Tx, workout models.Workout) (*models.Workout, error) {
+func (s *WorkoutService) CreateWorkoutRepo(ctx context.Context, tx *sql.Tx, name string, category string, description string, createdby uuid.UUID) (*models.Workout, error) {
 
 	var createdWorkout models.Workout
 
 	query := `INSERT INTO workout(name,category,description,created_by)  VALUES($1,$2,$3) RETERNING id`
 
-	err := s.db.QueryRowContext(ctx, query, workout).Scan(
+	err := s.db.QueryRowContext(ctx, query, name, category, description, createdby).Scan(
 		&createdWorkout.Name,
 		&createdWorkout.Category,
 		&createdWorkout.Description,
