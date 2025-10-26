@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/internal/service"
@@ -18,7 +20,8 @@ type WorkoutHandler struct {
 type CreateWorkoutReq struct {
 	Name        string
 	Description string
-	Exercises   []models.Exercise
+	Category    string
+	Exercises   []models.WorkoutExerciseResponse
 }
 
 func NewWorkoutHandler(logger *slog.Logger, ws *service.WorkoutService) *WorkoutHandler {
@@ -58,6 +61,43 @@ func (h *WorkoutHandler) CreateWorkout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//call service layer
+	workout, err := h.ws.CreateWorkout(ctx, userID, WorkOutReq.Name, WorkOutReq.Category, WorkOutReq.Description, WorkOutReq.Exercises)
+	if err != nil {
+		http.Error(w, "issue creating workout in service layer", http.StatusExpectationFailed)
+		return
+	}
 
-	return
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&workout)
+}
+
+func (h *WorkoutHandler) GetAllWorkouts(w http.ResponseWriter, r *http.Request) {
+	h.logger.Info("get all workout present")
+
+	ctx := r.Context()
+
+	parameters := r.URL.Query()
+	limitString := parameters.Get("limit")
+	cursor := parameters.Get("cursor")
+	search := parameters.Get("search")
+
+	limit, err := strconv.Atoi(limitString)
+	if err != nil {
+		log.Printf("error converting limit to integer, %s", err)
+	}
+
+	minLimit := 0
+	maxLimit := 100
+	defaultLimit := 25
+
+	//get userID from context
+
+	if limit < minLimit || limit >= 100 {
+
+	}
+
+	//call service layer for all the workouts
+
+	//
 }
