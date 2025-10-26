@@ -34,7 +34,7 @@ func NewWorkoutService(db database.DBInterface, client user_proto.UserServiceRPC
 	}
 }
 
-func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID, name, category, description string, exerc models.Exercise /*workout models.Workout, exerc models.Exercise /*workout handlers.CreateWorkoutReq*/) (*models.WorkoutExerciseResponse, error) {
+func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID, name, category, description string, exerc []models.WorkoutExerciseResponse /*workout models.Workout, exerc models.Exercise /*workout handlers.CreateWorkoutReq*/) (*models.WorkoutExerciseResponse, error) {
 
 	profilesReq := user_proto.GetUserRequest{
 		Userid: strings.Split(reqUserID.String(), ""), //strings.Split(reqUserID.String(), ""),
@@ -91,14 +91,14 @@ func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID,
 	}
 
 	if err := s.CreateExecrciseRepo(ctx, txs, exerc); err != nil {
-		log.Printf("")
+		log.Printf("iss")
 	}
 	//if err !=
 
 	return &models.WorkoutExerciseResponse{
 		WorkoutID:   wkt.ID,
 		Name:        wkt.Name,
-		ExcerciseID: exerc.ID,
+		ExcerciseID: wkout.ID,
 		//Order: ,
 	}, nil
 }
