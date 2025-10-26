@@ -64,11 +64,13 @@ func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID,
 	exerciseID, err := s.CollectExerciseID(&wkout)
 	if err != nil {
 		//handle err
+		log.Printf("cant collect IDs due to : %s", err)
 	}
 
 	err = s.ValidateExerciseID(ctx, exerciseID)
 	if err != nil {
 		//handle err
+		log.Printf("issue validating exercise IDs : %v", err)
 	}
 
 	//begin transaction
@@ -88,6 +90,7 @@ func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID,
 	wkt, err := s.CreateWorkoutRepo(ctx, txs, name, category, description, reqUserID)
 	if err != nil {
 		//handle error
+		log.Printf("create work out database Ops error: %s", err)
 	}
 
 	if err := s.CreateExecrciseRepo(ctx, txs, exerc); err != nil {
