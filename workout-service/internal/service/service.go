@@ -228,7 +228,7 @@ var (
 	ErrBadRequest = errors.New("invalid data format")
 )
 
-func (ws *WorkoutService) ListAllWorkouts(ctx context.Context, reqUserID uuid.UUID, paginationParams models.ListWorkoutParams) (*[]models.Workout, error) {
+func (ws *WorkoutService) ListAllWorkouts(ctx context.Context, reqUserID uuid.UUID, paginationParams models.ListWorkoutParams) (*models.PaginatedWorkout, error) {
 
 	var decodedCursor *CursorData
 
@@ -248,7 +248,65 @@ func (ws *WorkoutService) ListAllWorkouts(ctx context.Context, reqUserID uuid.UU
 
 		decodedCursor = &cursorData
 	}
-	return nil, nil
+
+	workouts, err := ws.ListWorkouts(ctx, paginationParams.Limit, paginationParams.Search, decodedCursor)
+	if err != nil {
+		log.Printf("issue with list workout repository operation due to: %s", err)
+		return nil, err
+	}
+
+	if len(workouts) == 0 {
+		return &models.PaginatedWorkout{
+			Data:       []models.Workout{},
+			NextCursor: "",
+		}, nil
+	}
+
+	var nextCursor string
+
+	if len(workouts) == paginationParams.Limit {
+		//get last item from the result
+		lastWorkout := workouts[len(workouts)-1]
+
+		//create cursor data from the last item
+		cursorData := CursorData{
+			Createdat:   lastWorkout.CreatedOn,
+			WorkoutUUID: lastWorkout.ID,
+		}
+
+		//marshal the data into json
+		CursorJSON, err := json.Marshal(cursorData)
+		if err != nil {
+			log.Printf("issue changing the cursor data to JSON, %v", err)
+			return nil, err
+		}
+
+		nextCursor = base64.StdEncoding.EncodeToString(CursorJSON)
+	}
+
+	//asssemble final data
+
+	workoutData := make([]models.Workout, len(workouts))
+
+	for i, workout := range workouts {
+		workoutData[i] = models.Workout{
+			ID:          workout.ID,
+			Name:        workout.Name,
+			Description: workout.Description,
+			Category:    workout.Category,
+			CreatedBy:   workout.CreatedBy,
+			CreatedOn:   workout.CreatedOn,
+			UpdatedON:   workout.UpdatedON,
+		}
+	}
+
+	//paginated data
+	paginatedResponse := &models.PaginatedWorkout{
+		Data:       workoutData,
+		NextCursor: nextCursor,
+	}
+
+	return paginatedResponse, nil
 }
 
 func (ws *WorkoutService) ListWorkouts(ctx context.Context, limit int, search string, cursor *CursorData /*paginationParams models.ListWorkoutParams*/) ([]models.Workout, error) {
