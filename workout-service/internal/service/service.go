@@ -5,10 +5,13 @@ import (
 
 	"context"
 	"database/sql"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/wycliff-ochieng/internal/database"
@@ -59,9 +62,9 @@ func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID,
 
 	//check the uuids from the exercise
 	//excercisIDs := []uuid.UUIDs{}
-	var wkout models.Exercise
+	var wkout []models.Exercise
 
-	exerciseID, err := s.CollectExerciseID(&wkout)
+	exerciseID, err := s.CollectExerciseID(wkout)
 	if err != nil {
 		//handle err
 		log.Printf("cant collect IDs due to : %s", err)
@@ -99,9 +102,9 @@ func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID,
 	//if err !=
 
 	return &models.WorkoutExerciseResponse{
-		WorkoutID:   wkt.ID,
-		Name:        wkt.Name,
-		ExcerciseID: wkout.ID,
+		WorkoutID: wkt.ID,
+		Name:      wkt.Name,
+		//ExcerciseID: wkout.ID,
 		//Order: ,
 	}, nil
 }
@@ -177,7 +180,7 @@ func (s *WorkoutService) CreateExecrciseRepo(ctx context.Context, tx *sql.Tx, ex
 	return nil
 }
 
-func (ws *WorkoutService) CollectExerciseID(*models.Exercise) ([]string, error) {
+func (ws *WorkoutService) CollectExerciseID([]models.Exercise) ([]string, error) {
 	var exercises []models.Exercise
 
 	exerciseeUUIDs := make(map[string]struct{})
@@ -216,21 +219,108 @@ func (ws *WorkoutService) ValidateExerciseID(ctx context.Context, exerciseID []s
 	return nil
 }
 
-/*
-func (s *WorkoutService) CreateWorkoutRepo(ctx context.Context, ID uuid.UUID, name string, description string, caregory string, owner string, createdat time.Time, updatedat time.Time) (*models.Workout, error) {
+type CursorData struct {
+	Createdat   time.Time
+	WorkoutUUID uuid.UUID
+}
 
-	var wkt models.Workout
+var (
+	ErrBadRequest = errors.New("invalid data format")
+)
 
-	query := `INSERT INTO workout(id,name,description,category,owner,createdat,updatedat) VALUES($1,$2,$3,$4,$5,$6,$7) RETURN id`
+func (ws *WorkoutService) ListAllWorkouts(ctx context.Context, reqUserID uuid.UUID, paginationParams models.ListWorkoutParams) (*[]models.Workout, error) {
 
+	var decodedCursor *CursorData
 
-	query := `INSERT INTO exercise() VALUES()`
+	if paginationParams.Cursor != " " {
+		cursorJSON, err := base64.StdEncoding.DecodeString(paginationParams.Cursor)
+		if err != nil {
+			log.Printf("issue decoding the cursor parameters to string, %s", err)
+			return nil, ErrBadRequest
+		}
 
-	_, err := s.db.ExecContext(ctx, query, wkt.ID, wkt.Name, wkt.Description)
+		var cursorData CursorData
+
+		if err = json.Unmarshal(cursorJSON, &cursorData); err != nil {
+			log.Printf("failed to unmarshal the parameter JSON")
+			return nil, ErrBadRequest
+		}
+
+		decodedCursor = &cursorData
+	}
+	return nil, nil
+}
+
+func (ws *WorkoutService) ListWorkouts(ctx context.Context, limit int, search string, cursor *CursorData /*paginationParams models.ListWorkoutParams*/) ([]models.Workout, error) {
+	var queryBuilder strings.Builder
+	var args []interface{}
+
+	paramIndex := 1
+
+	//base query
+	queryBuilder.WriteString("SELECT id,name,description,category,createdby,createdon,updatedon FROM WORKOUT")
+
+	//dynamic where clauses
+
+	whereClause := []string{}
+
+	//search filter
+	if search != "" {
+		whereClause = append(whereClause, fmt.Sprintf("name ILIKE %d", paramIndex))
+		args = append(args, "%"+search+"%")
+		paramIndex++
+	}
+
+	//cursor pagination
+	if cursor != nil {
+		clause := fmt.Sprintf("(created_at, uuid) < ($%d, $%d)", paramIndex, paramIndex+1)
+		whereClause = append(whereClause, clause)
+		args = append(args, cursor.Createdat, cursor.WorkoutUUID)
+		paramIndex += 2
+	}
+
+	// Append all WHERE clauses if any exist
+	if len(whereClause) > 0 {
+		queryBuilder.WriteString(" WHERE ")
+		queryBuilder.WriteString(strings.Join(whereClause, " AND "))
+	}
+
+	// --- Step 3: Final Clauses ---
+	queryBuilder.WriteString(fmt.Sprintf(" ORDER BY created_at DESC, uuid DESC LIMIT $%d", paramIndex))
+	args = append(args, limit)
+
+	// --- Step 4 & 5: Execute ---
+	finalQuery := queryBuilder.String()
+	log.Println("Executing Query:", finalQuery)
+	log.Println("With Args:", args)
+
+	rows, err := ws.db.QueryContext(ctx, finalQuery, args...)
 	if err != nil {
-		log.Printf("issue with execution: %s", err)
 		return nil, err
 	}
-	return &wkt, nil
+	defer rows.Close()
+
+	workouts := make([]models.Workout, 0, limit)
+
+	for rows.Next() {
+		var workout models.Workout
+
+		if err = rows.Scan(
+			&workout.ID,
+			&workout.Name,
+			&workout.Description,
+			&workout.Category,
+			&workout.CreatedBy,
+			&workout.CreatedOn,
+			&workout.UpdatedON,
+		); err != nil {
+			log.Printf("Issue scanning records, %s", err)
+		}
+
+		workouts = append(workouts, workout)
+	}
+
+	//workouts  = append(workouts,workout)
+
+	return workouts, nil
 }
-*/
