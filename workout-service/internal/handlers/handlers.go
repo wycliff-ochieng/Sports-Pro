@@ -87,17 +87,31 @@ func (h *WorkoutHandler) GetAllWorkouts(w http.ResponseWriter, r *http.Request) 
 		log.Printf("error converting limit to integer, %s", err)
 	}
 
-	minLimit := 0
+	minLimit := 1
 	maxLimit := 100
 	defaultLimit := 25
 
 	//get userID from context
 
-	if limit < minLimit || limit >= 100 {
-
+	if limit < minLimit || limit >= maxLimit {
+		http.Error(w, "Limit is either less or greater than the limit", http.StatusFailedDependency)
+		return
 	}
 
+	if limit == 0 {
+		limit = defaultLimit
+	}
+
+	createdParams := models.ListWorkoutParams{
+		Search: search,
+		Limit:  limit,
+		Cursor: cursor,
+	}
+
+	userID, err := 
+
 	//call service layer for all the workouts
+	workouts, err := h.ws.ListAllWorkouts()
 
 	//
 }
