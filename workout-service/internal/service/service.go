@@ -37,13 +37,13 @@ func NewWorkoutService(db database.DBInterface, client user_proto.UserServiceRPC
 	}
 }
 
-func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID, name, category, description string, exerc []models.WorkoutExerciseResponse /*workout models.Workout, exerc models.Exercise /*workout handlers.CreateWorkoutReq*/) (*models.WorkoutExerciseResponse, error) {
+func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID, name, category, description string, exerc []models.Exercise) (*models.CreateWorkoutResponse, error) {
 
 	profilesReq := user_proto.GetUserRequest{
 		Userid: strings.Split(reqUserID.String(), ""), //strings.Split(reqUserID.String(), ""),
 	}
 
-	profileRes, err := s.userClient.GetUserProfile(ctx, &profilesReq)
+	profileRes, err := s.userClient.GetUserProfiles(ctx, &profilesReq)
 	if err != nil {
 		log.Printf("error getting profiles response from user service : %s", err)
 		return nil, err
@@ -96,16 +96,32 @@ func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID,
 		log.Printf("create work out database Ops error: %s", err)
 	}
 
-	if err := s.CreateExecrciseRepo(ctx, txs, exerc); err != nil {
+	var workoutExercisesToInsert []models.WorkoutExerciseResponse
+	for _, ex := range exerc {
+		workoutExercisesToInsert = append(workoutExercisesToInsert, models.WorkoutExerciseResponse{
+			WorkoutID: wkt.ID, // <<< FIX: Use the ID from the record we just created.
+			//ExerciseID:  ex.ID,
+			ExcerciseID: ex.ID,
+			Order:       int32(ex.Order),
+			Sets:        int32(ex.Sets),
+			Reps:        int32(ex.Reps),
+		})
+	}
+
+	if err := s.CreateExecrciseRepo(ctx, txs, workoutExercisesToInsert); err != nil {
 		log.Printf("iss")
 	}
 	//if err !=
+	if err := txs.Commit(); err != nil {
+		log.Printf("Error committing the trasaction to db; %s", err)
+	}
 
-	return &models.WorkoutExerciseResponse{
-		WorkoutID: wkt.ID,
-		Name:      wkt.Name,
-		//ExcerciseID: wkout.ID,
-		//Order: ,
+	return &models.CreateWorkoutResponse{
+		WorkoutID:   wkt.ID,
+		Name:        wkt.Name,
+		Category:    wkt.Category,
+		Description: wkt.Description,
+		Exercises:   exerc,
 	}, nil
 }
 
@@ -113,13 +129,16 @@ func (s *WorkoutService) CreateWorkoutRepo(ctx context.Context, tx *sql.Tx, name
 
 	var createdWorkout models.Workout
 
-	query := `INSERT INTO workout(name,category,description,created_by)  VALUES($1,$2,$3) RETERNING id`
+	query := `INSERT INTO workouts(name,description,category,created_by)  VALUES($1,$2,$3,$4) RETURNING id,name,description,category,created_by,created_at`
 
-	err := s.db.QueryRowContext(ctx, query, name, category, description, createdby).Scan(
+	err := s.db.QueryRowContext(ctx, query, name, description, category, createdby).Scan(
+		&createdWorkout.ID,
 		&createdWorkout.Name,
-		&createdWorkout.Category,
 		&createdWorkout.Description,
+		&createdWorkout.Category,
 		&createdWorkout.CreatedBy,
+		&createdWorkout.CreatedOn,
+		&createdWorkout.UpdatedON,
 	)
 	if err != nil {
 		log.Printf("issue with executing inserting into workout due to: %s", err)
@@ -131,52 +150,105 @@ func (s *WorkoutService) CreateWorkoutRepo(ctx context.Context, tx *sql.Tx, name
 func (s *WorkoutService) CreateExecrciseRepo(ctx context.Context, tx *sql.Tx, exercises []models.WorkoutExerciseResponse) error {
 
 	//bulk insert
+	/*
+		if len(exercises) == 0 {
+			return nil
+		}
+
+		sqlStr := `INSERT INTO workout_exercise(workout_id,exercise_id,sequence,sets,reps) VALUES` // ($1,$2,$3,$4,$5)`
+
+		vals := []interface{}{}
+
+		for i, exercise := range exercises {
+			placeHolder1 := i*5 + 1
+			placeHolder2 := i*5 + 2
+			placeHolder3 := i*5 + 3
+			placeHolder4 := i*5 + 4
+			placeHolder5 := i*5 + 5
+
+			placeholder := fmt.Sprintf("($%d,$%d,$%d,$%d,$%d)", placeHolder1, placeHolder2, placeHolder3, placeHolder4, placeHolder5)
+
+			sqlStr += placeholder
+
+			vals = append(vals, exercise.WorkoutID, exercise.ExcerciseID, exercise.Order, exercise.Sets, exercise.Reps)
+		}
+
+		sqlStr = strings.TrimSuffix(sqlStr, ",")
+
+		stmt, err := tx.PrepareContext(ctx, sqlStr) //method that creates a prepared context for later execution
+		if err != nil {
+			log.Printf("handle errors from the %s", err)
+			return err
+		}
+
+		result, err := stmt.ExecContext(ctx, vals)
+		if err != nil {
+			//handle errors
+			log.Printf("issues getting results: %s", err)
+		}
+
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			//handle errors
+			log.Printf("error in this Ops: %s", err)
+		}
+
+		if int(rowsAffected) != len(exercises) {
+			return fmt.Errorf("bulk insert mismatch, %s", err)
+		}*/
 
 	if len(exercises) == 0 {
 		return nil
 	}
 
-	sqlStr := `INSERT INTO workout_exercise(id,name,description,instructions,createdby) VALUES($1,$2,$3,$4,$5)`
+	var queryBuilder strings.Builder
 
-	vals := []interface{}{}
+	queryBuilder.WriteString(`INSERT INTO workout_exercises (workout_id, exercise_id,sequence, sets, reps) VALUES `)
 
+	const columnCount = 5
+	vals := make([]interface{}, 0, len(exercises)*columnCount)
+
+	// --- FIX: The Loop Logic ---
 	for i, exercise := range exercises {
-		placeHolder1 := i*5 + 1
-		placeHolder2 := i*5 + 2
-		placeHolder3 := i*5 + 3
-		placeHolder4 := i*5 + 4
-		placeHolder5 := i*5 + 5
+		// Calculate the starting parameter index for the current row.
+		n := i * columnCount
 
-		placeholder := fmt.Sprintf("(%d,%d,%d,%d,%d)", placeHolder1, placeHolder2, placeHolder3, placeHolder4, placeHolder5)
+		// Append the placeholder group for the current row.
+		queryBuilder.WriteString(fmt.Sprintf("($%d, $%d, $%d, $%d, $%d)", n+1, n+2, n+3, n+4, n+5))
 
-		sqlStr += placeholder
+		// Append a comma if it's NOT the last item in the slice.
+		if i < len(exercises)-1 {
+			queryBuilder.WriteString(",")
+		}
 
+		// Append the actual values to the flat slice.
 		vals = append(vals, exercise.WorkoutID, exercise.ExcerciseID, exercise.Order, exercise.Sets, exercise.Reps)
 	}
 
-	sqlStr = strings.TrimSuffix(sqlStr, ",")
+	// Get the final query string from the builder.
+	finalQuery := queryBuilder.String()
 
-	stmt, err := tx.PrepareContext(ctx, sqlStr) //method that creates a prepared context for later execution
+	// --- EXECUTION ---
+	// Execute the query. The 'vals...' unfurls the slice.
+	// No need to Prepare, ExecContext can handle it directly.
+	result, err := tx.ExecContext(ctx, finalQuery, vals...)
 	if err != nil {
-		log.Printf("handle errors from the %s", err)
-		return err
+		// Log the final query and args for easier debugging if it fails.
+		log.Printf("failed to execute bulk insert", "query", finalQuery, "args_count", len(vals), "error", err)
+		return fmt.Errorf("failed to execute bulk insert: %w", err)
 	}
 
-	result, err := stmt.ExecContext(ctx, vals)
-	if err != nil {
-		//handle errors
-		log.Printf("issues getting results: %s", err)
-	}
-
+	// --- VERIFICATION ---
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		//handle errors
-		log.Printf("error in this Ops: %s", err)
+		log.Printf("could not get rows affected after bulk insert", "error", err)
+		return nil // The insert probably succeeded, so we don't return an error.
 	}
 
 	if int(rowsAffected) != len(exercises) {
-		return fmt.Errorf("bulk insert mismatch, %s", err)
+		return fmt.Errorf("bulk insert mismatch: expected %d, inserted %d", len(exercises), int(rowsAffected))
 	}
+
 	return nil
 }
 
