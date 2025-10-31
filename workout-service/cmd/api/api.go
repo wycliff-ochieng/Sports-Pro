@@ -11,6 +11,7 @@ import (
 	"github.com/wycliff-ochieng/internal/database"
 	"github.com/wycliff-ochieng/internal/handlers"
 	"github.com/wycliff-ochieng/internal/service"
+	auth "github.com/wycliff-ochieng/sports-common-package/middleware"
 	"github.com/wycliff-ochieng/sports-common-package/user_grpc/user_proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -32,6 +33,9 @@ func (s *Server) Run() {
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
+
+	//setup middleware
+	authMiddleware := auth.AuthMiddleware(s.cfg.JWTSecret, logger)
 
 	db, err := database.NewPostgresDB(s.cfg)
 	if err != nil {
@@ -56,10 +60,11 @@ func (s *Server) Run() {
 	router := mux.NewRouter()
 
 	createWorkout := router.Methods("POST").Subrouter()
-	createWorkout.HandleFunc("/", wh.CreateWorkout)
+	createWorkout.HandleFunc("/api", wh.CreateWorkout)
+	createWorkout.Use(authMiddleware)
 
 	getWorkouts := router.Methods("GET").Subrouter()
-	getWorkouts.HandleFunc("/", wh.GetAllWorkouts)
+	getWorkouts.HandleFunc("/api/workout", wh.GetAllWorkouts)
 
 	if err := http.ListenAndServe(s.addr, router); err != nil {
 		log.Printf("error listening to the address")
