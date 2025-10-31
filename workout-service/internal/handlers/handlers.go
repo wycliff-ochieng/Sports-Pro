@@ -21,7 +21,7 @@ type CreateWorkoutReq struct {
 	Name        string
 	Description string
 	Category    string
-	Exercises   []models.WorkoutExerciseResponse
+	Exercises   []models.Exercise
 }
 
 func NewWorkoutHandler(logger *slog.Logger, ws *service.WorkoutService) *WorkoutHandler {
@@ -42,15 +42,16 @@ func (h *WorkoutHandler) CreateWorkout(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	userID, err := auth.GetUserUUIDFromContext(ctx)
-	if err != nil {
-		http.Error(w, "issue with getting userID from middleware", http.StatusInternalServerError)
-		return
-	}
-
 	//request body
 	if err := json.NewDecoder(r.Body).Decode(&WorkOutReq); err != nil {
 		http.Error(w, "issue with unmarshaling the incoming request", http.StatusInternalServerError)
+		return
+	}
+
+	userID, err := auth.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		log.Printf("due to : %s", err)
+		http.Error(w, "issue with getting userID from middleware", http.StatusInternalServerError)
 		return
 	}
 
@@ -108,10 +109,22 @@ func (h *WorkoutHandler) GetAllWorkouts(w http.ResponseWriter, r *http.Request) 
 		Cursor: cursor,
 	}
 
-	userID, err := 
+	userID, err := auth.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		http.Error(w, "error getting userID from ctx", http.StatusFailedDependency)
+		return
+	}
 
 	//call service layer for all the workouts
-	workouts, err := h.ws.ListAllWorkouts()
+	workouts, err := h.ws.ListAllWorkouts(ctx, userID, createdParams)
+	if err != nil {
+		http.Error(w, "error getting workouts in service layer", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&workouts)
 
 	//
 }
