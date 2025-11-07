@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
+	_ "github.com/lib/pq"
 	"github.com/wycliff-ochieng/internal/database"
 
 	//"github.com/wycliff-ochieng/internal/handlers"
@@ -23,6 +25,7 @@ import (
 
 var (
 	ErrForbidden = errors.New("Not allowed to do this")
+	//ErrBadRequest = errors.New("bad r")
 )
 
 type WorkoutService struct {
@@ -37,6 +40,221 @@ func NewWorkoutService(db database.DBInterface, client user_proto.UserServiceRPC
 	}
 }
 
+func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID, req models.CreateWorkoutResponse) (*models.CreateWorkoutResponse, error) {
+
+	profilesReq := user_proto.GetUserRequest{
+		Userid: strings.Split(reqUserID.String(), ""), //strings.Split(reqUserID.String(), ""),
+	}
+
+	profileRes, err := s.userClient.GetUserProfiles(ctx, &profilesReq)
+	if err != nil {
+		log.Printf("error getting profiles response from user service : %s", err)
+		return nil, err
+	}
+
+	profileMap := profileRes.Profiles
+
+	//check if reqUserID has a profile, check also role
+
+	profile, found := profileMap[reqUserID.String()]
+	if !found {
+		log.Printf("no profile for user with id : %s", reqUserID)
+	} else {
+		log.Printf(profile.Firstname, "%s is in the system")
+	}
+
+	//begin transaction
+	txs, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		log.Printf("Error starting transactions: %s", err)
+		return nil, err
+	}
+
+	defer txs.Rollback()
+
+	//validate exercise UUID
+	uniqueUUIDs := make(map[uuid.UUID]struct{})
+	for _, ex := range req.Exercises {
+		uniqueUUIDs[ex.ExerciseID] = struct{}{}
+	}
+
+	// Create a slice to pass to the repository function.
+	uuidsToValidate := make([]uuid.UUID, 0, len(uniqueUUIDs))
+	for u := range uniqueUUIDs {
+		uuidsToValidate = append(uuidsToValidate, u)
+	}
+
+	// Handle the edge case where no exercises were provided.
+	if len(uuidsToValidate) == 0 {
+		return nil, ErrBadRequest
+	}
+
+	//err = s.ValidateExerciseUUIDs(ctx, txs, uuidsToValidate)
+	//if err != nil {
+	//	log.Println("exercise UUID validation failed", "error", err)
+
+	// Wrap the repository error in a more specific service-level error.
+	//	return nil, ErrBadRequest
+	//}
+
+	workoutToCreate := &models.Workout{
+		Name:        req.Name,
+		Description: req.Description,
+		Category:    req.Category,
+		CreatedBy:   reqUserID,
+	}
+
+	newlyCreatedWorkout, err := s.CreateWorkoutRepo(ctx, txs, workoutToCreate)
+	if err != nil {
+		log.Println("CreateWorkoutRepo failed", "error", err)
+		return nil, err
+	}
+
+	linksToCreate := make([]WorkoutExerciseLink, 0, len(req.Exercises))
+
+	// Loop through the exercises from the original client request.
+	for _, exerciseFromReq := range req.Exercises {
+		// For each exercise, create a link object.
+		link := WorkoutExerciseLink{
+			WorkoutID:  newlyCreatedWorkout.ID, // <-- CRITICAL: Use the ID from the workout we just created.
+			ExerciseID: exerciseFromReq.ExerciseID,
+			Order:      int(exerciseFromReq.Order),
+			Sets:       int(exerciseFromReq.Sets),
+			Reps:       int(exerciseFromReq.Reps), //.String(),
+		}
+
+		linksToCreate = append(linksToCreate, link)
+	}
+
+	// --- Step 3: Call the Second Repository Function ---
+	// Concept: Perform the bulk insert of all the link records.
+	if len(linksToCreate) > 0 {
+		err := s.CreateBulkWorkoutExercises(ctx, txs, linksToCreate)
+		if err != nil {
+			// If this fails, stop and return the error.
+			log.Println("CreateBulkWorkoutExercises failed", "error", err)
+			return nil, err
+		}
+	}
+
+	if err := txs.Commit(); err != nil {
+		log.Printf("Error committing the trasaction to db; %s", err)
+		return nil, err
+	}
+
+	return &models.CreateWorkoutResponse{
+		WorkoutID:   newlyCreatedWorkout.ID,
+		Name:        newlyCreatedWorkout.Name,
+		Category:    newlyCreatedWorkout.Category,
+		Description: newlyCreatedWorkout.Description,
+		Exercises:   req.Exercises,
+	}, nil
+
+}
+
+func (s *WorkoutService) CreateWorkoutRepo(ctx context.Context, tx *sql.Tx, workout *models.Workout) (*models.Workout, error) {
+	// This struct will hold the data scanned back from the database.
+	var createdWorkout models.Workout
+
+	query := `
+        INSERT INTO workouts (name, description, category, created_by)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, name, description, category, created_by, created_at, updated_at
+    `
+
+	err := tx.QueryRowContext(ctx, query,
+		workout.Name,
+		workout.Description,
+		workout.Category,
+		workout.CreatedBy,
+	).Scan(
+		&createdWorkout.ID,
+		&createdWorkout.Name,
+		&createdWorkout.Description,
+		&createdWorkout.Category,
+		&createdWorkout.CreatedBy,
+		&createdWorkout.CreatedOn, // Ensure these field names match your Go struct
+		&createdWorkout.UpdatedON,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert workout record: %w", err)
+	}
+
+	return &createdWorkout, nil
+}
+
+type WorkoutExerciseLink struct {
+	WorkoutID  uuid.UUID
+	ExerciseID uuid.UUID
+	Order      int
+	Sets       int
+	Reps       int //string // Use string for flexibility
+}
+
+func (r *WorkoutService) CreateBulkWorkoutExercises(ctx context.Context, tx *sql.Tx, links []WorkoutExerciseLink) error {
+	if len(links) == 0 {
+		return nil // Nothing to do.
+	}
+
+	// This function uses the standard database/sql approach for bulk inserts.
+	var queryBuilder strings.Builder
+	queryBuilder.WriteString(`INSERT INTO workout_exercises (workout_id, exercise_id, "sequence", sets, reps) VALUES `)
+
+	const columnCount = 5
+	vals := make([]interface{}, 0, len(links)*columnCount)
+
+	for i, link := range links {
+		n := i * columnCount
+		queryBuilder.WriteString(fmt.Sprintf("($%d, $%d, $%d, $%d, $%d)", n+1, n+2, n+3, n+4, n+5))
+
+		if i < len(links)-1 {
+			queryBuilder.WriteString(",")
+		}
+
+		vals = append(vals, link.WorkoutID, link.ExerciseID, link.Order, link.Sets, link.Reps)
+	}
+
+	finalQuery := queryBuilder.String()
+
+	// Execute the single, large INSERT statement on the transaction.
+	_, err := tx.ExecContext(ctx, finalQuery, vals...)
+	if err != nil {
+		return fmt.Errorf("failed to execute bulk insert for workout_exercises: %w", err)
+	}
+
+	return nil
+}
+
+func (s *WorkoutService) ValidateExerciseUUIDs(ctx context.Context, tx *sql.Tx, exerciseUUIDs []uuid.UUID) error {
+	if len(exerciseUUIDs) == 0 {
+		return nil // Nothing to validate.
+	}
+
+	// This is the validation query. It's highly efficient for PostgreSQL.
+	query := `SELECT COUNT(id) FROM exercises WHERE id = ANY($1)`
+
+	// The pq.Array helper is used to properly format the Go slice of UUIDs
+	// into a format that PostgreSQL's array parameter type understands.
+	var count int
+	err := tx.QueryRowContext(ctx, query, pq.Array(exerciseUUIDs)).Scan(&count)
+	if err != nil {
+		// This indicates a problem with the query itself or the database connection.
+		return fmt.Errorf("failed to execute exercise validation query: %w", err)
+	}
+
+	// Compare the count of found UUIDs with the number of unique UUIDs we checked for.
+	if count != len(exerciseUUIDs) {
+		// This is the validation failure. At least one UUID was not found.
+		// We return a specific, recognizable error.
+		return fmt.Errorf("validation failed: one or more exercise UUIDs do not exist (found %d, expected %d)", count, len(exerciseUUIDs))
+	}
+
+	// If the counts match, all UUIDs are valid.
+	return nil
+}
+
+/*
 func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID, name, category, description string, exerc []models.Exercise) (*models.CreateWorkoutResponse, error) {
 
 	profilesReq := user_proto.GetUserRequest{
@@ -68,18 +286,30 @@ func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID,
 	if err != nil {
 		//handle err
 		log.Printf("cant collect IDs due to : %s", err)
+		return nil, fmt.Errorf("error: %s", err)
 	}
 
 	err = s.ValidateExerciseID(ctx, exerciseID)
 	if err != nil {
 		//handle err
 		log.Printf("issue validating exercise IDs : %v", err)
+		return nil, err
 	}
+
+	/*seenUUIDs := make(map[uuid.UUID]bool)
+	for _, ex := range exerc {
+		if seenUUIDs[ex.ID] {
+			// We have found a duplicate in the request itself.
+			return nil, ErrBadRequest
+		}
+		seenUUIDs[ex.ID] = true
+	}*
 
 	//begin transaction
 	txs, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("Error starting transactions: %s", err)
+		return nil, err
 	}
 
 	defer txs.Rollback()
@@ -94,13 +324,13 @@ func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID,
 	if err != nil {
 		//handle error
 		log.Printf("create work out database Ops error: %s", err)
+		return nil, err
 	}
 
 	var workoutExercisesToInsert []models.WorkoutExerciseResponse
 	for _, ex := range exerc {
 		workoutExercisesToInsert = append(workoutExercisesToInsert, models.WorkoutExerciseResponse{
-			WorkoutID: wkt.ID, // <<< FIX: Use the ID from the record we just created.
-			//ExerciseID:  ex.ID,
+			WorkoutID:   wkt.ID, // <<< FIX: Use the ID from the record we just created.
 			ExcerciseID: ex.ID,
 			Order:       int32(ex.Order),
 			Sets:        int32(ex.Sets),
@@ -109,11 +339,13 @@ func (s *WorkoutService) CreateWorkout(ctx context.Context, reqUserID uuid.UUID,
 	}
 
 	if err := s.CreateExecrciseRepo(ctx, txs, workoutExercisesToInsert); err != nil {
-		log.Printf("iss")
+		log.Printf("an erro due to: %s", err)
+		return nil, err
 	}
 	//if err !=
 	if err := txs.Commit(); err != nil {
 		log.Printf("Error committing the trasaction to db; %s", err)
+		return nil, err
 	}
 
 	return &models.CreateWorkoutResponse{
@@ -131,14 +363,14 @@ func (s *WorkoutService) CreateWorkoutRepo(ctx context.Context, tx *sql.Tx, name
 
 	query := `INSERT INTO workouts(name,description,category,created_by)  VALUES($1,$2,$3,$4) RETURNING id,name,description,category,created_by,created_at`
 
-	err := s.db.QueryRowContext(ctx, query, name, description, category, createdby).Scan(
+	err := tx.QueryRowContext(ctx, query, name, description, category, createdby).Scan(
 		&createdWorkout.ID,
 		&createdWorkout.Name,
 		&createdWorkout.Description,
 		&createdWorkout.Category,
 		&createdWorkout.CreatedBy,
 		&createdWorkout.CreatedOn,
-		&createdWorkout.UpdatedON,
+		//&createdWorkout.UpdatedON,
 	)
 	if err != nil {
 		log.Printf("issue with executing inserting into workout due to: %s", err)
@@ -195,7 +427,7 @@ func (s *WorkoutService) CreateExecrciseRepo(ctx context.Context, tx *sql.Tx, ex
 
 		if int(rowsAffected) != len(exercises) {
 			return fmt.Errorf("bulk insert mismatch, %s", err)
-		}*/
+		}*
 
 	if len(exercises) == 0 {
 		return nil
@@ -234,14 +466,14 @@ func (s *WorkoutService) CreateExecrciseRepo(ctx context.Context, tx *sql.Tx, ex
 	result, err := tx.ExecContext(ctx, finalQuery, vals...)
 	if err != nil {
 		// Log the final query and args for easier debugging if it fails.
-		log.Printf("failed to execute bulk insert", "query", finalQuery, "args_count", len(vals), "error", err)
+		log.Print("failed to execute bulk insert", "query", finalQuery, "args_count", len(vals), "error", err)
 		return fmt.Errorf("failed to execute bulk insert: %w", err)
 	}
 
 	// --- VERIFICATION ---
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		log.Printf("could not get rows affected after bulk insert", "error", err)
+		log.Print("could not get rows affected after bulk insert", "error", err)
 		return nil // The insert probably succeeded, so we don't return an error.
 	}
 
@@ -290,6 +522,8 @@ func (ws *WorkoutService) ValidateExerciseID(ctx context.Context, exerciseID []s
 	}
 	return nil
 }
+
+*/
 
 type CursorData struct {
 	Createdat   time.Time
