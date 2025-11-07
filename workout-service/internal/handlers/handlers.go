@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/internal/service"
 	auth "github.com/wycliff-ochieng/sports-common-package/middleware"
@@ -17,11 +18,18 @@ type WorkoutHandler struct {
 	ws     *service.WorkoutService
 }
 
+type ExerciseInCreateWorkoutReq struct {
+	ExerciseID uuid.UUID `json:"exerciseid"` // <-- The tag must match the JSON key
+	Order      int32     `json:"order"`
+	Sets       int32     `json:"sets"`
+	Reps       string    `json:"reps"`
+}
+
 type CreateWorkoutReq struct {
 	Name        string
 	Description string
 	Category    string
-	Exercises   []models.Exercise
+	Exercises   []ExerciseInCreateWorkoutReq
 }
 
 func NewWorkoutHandler(logger *slog.Logger, ws *service.WorkoutService) *WorkoutHandler {
@@ -38,7 +46,7 @@ func (h *WorkoutHandler) CreateWorkout(w http.ResponseWriter, r *http.Request) {
 
 	//http.ServeFile()
 
-	var WorkOutReq CreateWorkoutReq
+	var WorkOutReq models.CreateWorkoutResponse
 
 	ctx := r.Context()
 
@@ -62,7 +70,7 @@ func (h *WorkoutHandler) CreateWorkout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//call service layer
-	workout, err := h.ws.CreateWorkout(ctx, userID, WorkOutReq.Name, WorkOutReq.Category, WorkOutReq.Description, WorkOutReq.Exercises)
+	workout, err := h.ws.CreateWorkout(ctx, userID, WorkOutReq) //WorkOutReq.Category, WorkOutReq.Description, WorkOutReq.Exercises)
 	if err != nil {
 		http.Error(w, "issue creating workout in service layer", http.StatusExpectationFailed)
 		return
