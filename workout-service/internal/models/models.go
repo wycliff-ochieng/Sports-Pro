@@ -9,8 +9,8 @@ import (
 type Workout struct {
 	ID          uuid.UUID
 	Name        string
-	Category    string
 	Description string
+	Category    string
 	CreatedBy   uuid.UUID //user_id of the coach / admin
 	CreatedOn   time.Time
 	UpdatedON   time.Time
@@ -41,13 +41,20 @@ type WorkoutExerciseResponse struct {
 
 type WorkoutExercise struct{}
 
+type ExerciseInCreateWorkoutReq struct {
+	ExerciseID uuid.UUID `json:"exerciseid"` // <-- The tag must match the JSON key
+	Order      int32     `json:"order"`
+	Sets       int32     `json:"sets"`
+	Reps       int32     `json:"reps"`
+}
+
 type CreateWorkoutResponse struct {
 	WorkoutID   uuid.UUID
 	Name        string
 	Category    string
 	Description string
 	Createdat   time.Time
-	Exercises   []Exercise
+	Exercises   []ExerciseInCreateWorkoutReq
 }
 
 type Media struct {
