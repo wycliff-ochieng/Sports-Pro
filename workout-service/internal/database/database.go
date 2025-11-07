@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	"github/wycliff-ochieng/internal/config"
+	"github.com/wycliff-ochieng/internal/config"
 	"log"
 
 	_ "github.com/lib/pq"
