@@ -67,6 +67,6 @@ func (s *Server) Run() {
 	getWorkouts.HandleFunc("/api/workout", wh.GetAllWorkouts)
 
 	if err := http.ListenAndServe(s.addr, router); err != nil {
-		log.Printf("error listening to the address")
+		log.Printf("error listening to the address, %s", err)
 	}
 }
