@@ -65,6 +65,11 @@ func (s *Server) Run() {
 
 	getWorkouts := router.Methods("GET").Subrouter()
 	getWorkouts.HandleFunc("/api/workout", wh.GetAllWorkouts)
+	getWorkouts.Use(authMiddleware)
+
+	createExercise := router.Methods("POST").Subrouter()
+	createExercise.HandleFunc("/api/exercise", wh.CreateExercise)
+	createExercise.Use(authMiddleware)
 
 	if err := http.ListenAndServe(s.addr, router); err != nil {
 		log.Printf("error listening to the address, %s", err)
