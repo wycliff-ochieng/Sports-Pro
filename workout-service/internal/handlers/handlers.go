@@ -25,13 +25,6 @@ type CreateWorkoutReq struct {
 	Exercises   []models.ExerciseInCreateWorkoutReq
 }
 
-type CreateExerciseReq struct {
-	Name  string
-	Order int
-	Sets  int
-	Reps  int
-}
-
 func NewWorkoutHandler(logger *slog.Logger, ws *service.WorkoutService) *WorkoutHandler {
 	return &WorkoutHandler{
 		logger: logger,
@@ -142,15 +135,38 @@ func (h *WorkoutHandler) GetAllWorkouts(w http.ResponseWriter, r *http.Request) 
 func (h *WorkoutHandler) CreateExercise(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("Create Exercise Handler now in actions")
 
-	var exercise CreateExerciseReq
+	ctx := r.Context()
+
+	var exercise models.CreateExerciseReq
 
 	if err := json.NewDecoder(r.Body).Decode(&exercise); err != nil {
 		http.Error(w, "Error decoding request body", http.StatusInternalServerError)
 		return
 	}
 
-	//validations
+	//validations-> make sure name is not empty
+
+	if exercise.Name == "" {
+		http.Error(w, "enter valid exercise name", http.StatusExpectationFailed)
+		return
+	}
+
+	userID, err := auth.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		http.Error(w, "issue with getting userID from context", http.StatusInternalServerError)
+		return
+	}
 
 	//call service layer
+
+	ex, err := h.ws.CreateExercise(ctx, userID, &exercise)
+	if err != nil {
+		http.Error(w, "some error in service layer during creation", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&ex)
 
 }
