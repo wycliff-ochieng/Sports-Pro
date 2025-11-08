@@ -142,4 +142,15 @@ func (h *WorkoutHandler) GetAllWorkouts(w http.ResponseWriter, r *http.Request) 
 func (h *WorkoutHandler) CreateExercise(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("Create Exercise Handler now in actions")
 
+	var exercise CreateExerciseReq
+
+	if err := json.NewDecoder(r.Body).Decode(&exercise); err != nil {
+		http.Error(w, "Error decoding request body", http.StatusInternalServerError)
+		return
+	}
+
+	//validations
+
+	//call service layer
+
 }
