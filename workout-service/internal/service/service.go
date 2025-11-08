@@ -538,7 +538,7 @@ func (ws *WorkoutService) ListAllWorkouts(ctx context.Context, reqUserID uuid.UU
 
 	var decodedCursor *CursorData
 
-	if paginationParams.Cursor != " " {
+	if paginationParams.Cursor != "" {
 		cursorJSON, err := base64.StdEncoding.DecodeString(paginationParams.Cursor)
 		if err != nil {
 			log.Printf("issue decoding the cursor parameters to string, %s", err)
@@ -622,7 +622,7 @@ func (ws *WorkoutService) ListWorkouts(ctx context.Context, limit int, search st
 	paramIndex := 1
 
 	//base query
-	queryBuilder.WriteString("SELECT id,name,description,category,createdby,createdon,updatedon FROM WORKOUT")
+	queryBuilder.WriteString("SELECT id,name,description,category,created_by,created_at,updated_at FROM workouts")
 
 	//dynamic where clauses
 
@@ -637,7 +637,7 @@ func (ws *WorkoutService) ListWorkouts(ctx context.Context, limit int, search st
 
 	//cursor pagination
 	if cursor != nil {
-		clause := fmt.Sprintf("(created_at, uuid) < ($%d, $%d)", paramIndex, paramIndex+1)
+		clause := fmt.Sprintf("(created_at, id) < ($%d, $%d)", paramIndex, paramIndex+1)
 		whereClause = append(whereClause, clause)
 		args = append(args, cursor.Createdat, cursor.WorkoutUUID)
 		paramIndex += 2
@@ -650,7 +650,7 @@ func (ws *WorkoutService) ListWorkouts(ctx context.Context, limit int, search st
 	}
 
 	// --- Step 3: Final Clauses ---
-	queryBuilder.WriteString(fmt.Sprintf(" ORDER BY created_at DESC, uuid DESC LIMIT $%d", paramIndex))
+	queryBuilder.WriteString(fmt.Sprintf(" ORDER BY created_at DESC, id DESC LIMIT $%d", paramIndex))
 	args = append(args, limit)
 
 	// --- Step 4 & 5: Execute ---
@@ -688,3 +688,29 @@ func (ws *WorkoutService) ListWorkouts(ctx context.Context, limit int, search st
 
 	return workouts, nil
 }
+
+func (ws *WorkoutService) CreateExercise(ctx context.Context, reqUser uuid.UUID, req *models.CreateExerciseReq) (*models.Exercise, error) {
+	var ex models.Exercise
+
+	exercise, err := models.NewExercise(req.Name, req.Description, req.Instructions)
+	if err != nil {
+		return nil, fmt.Errorf("issue creating exercise: %s", err)
+	}
+
+	query := `INSERT INTO exercise(id,name,description,instructions,created_by,created_at,updated_at)VALUES($1,$2,$3,$4,$5,$6,$7)`
+
+	_, err = ws.db.ExecContext(ctx, query, ex.ID, ex.Name, ex.Description, ex.Instruction, ex.CreatedBy, ex.CreatedOn, ex.UpdatedOn)
+	if err != nil {
+		return nil, fmt.Errorf("issue creating exercise due to: %s", err)
+	}
+
+	return &models.Exercise{
+		ID:          uuid.New(),
+		Name:        exercise.Name,
+		Description: exercise.Description,
+		Instruction: exercise.Instruction,
+		CreatedBy:   reqUser,
+	}, nil
+}
+
+//func(ws *WorkoutService) CreateWorkoutRepo(ctx, )
