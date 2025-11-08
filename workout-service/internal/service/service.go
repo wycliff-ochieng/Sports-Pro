@@ -689,28 +689,37 @@ func (ws *WorkoutService) ListWorkouts(ctx context.Context, limit int, search st
 	return workouts, nil
 }
 
-func (ws *WorkoutService) CreateExercise(ctx context.Context, reqUser uuid.UUID, req *models.CreateExerciseReq) (*models.Exercise, error) {
+func (ws *WorkoutService) CreateExercise(ctx context.Context, reqUser uuid.UUID, name, description, instructions string) (*models.Exercise, error) {
 	var ex models.Exercise
 
-	exercise, err := models.NewExercise(req.Name, req.Description, req.Instructions)
+	/*exercise, err := models.NewExercise(name, description, instructions)
 	if err != nil {
 		log.Printf("error creating exercise due to: %s", err)
 		return nil, fmt.Errorf("issue creating exercise: %s", err)
-	}
+	}*/
 
-	query := `INSERT INTO exercises(id,name,description,instructions,created_by,created_at,updated_at)VALUES($1,$2,$3,$4,$5,$6,$7)`
+	query := `INSERT INTO exercises(name,description,instructions,created_by)VALUES($1,$2,$3,$4) RETURNING 
+	id,name,description,instructions,created_by,created_at,updated_at`
 
-	_, err = ws.db.ExecContext(ctx, query, ex.ID, ex.Name, ex.Description, ex.Instruction, ex.CreatedBy, ex.CreatedOn, ex.UpdatedOn)
+	err := ws.db.QueryRowContext(ctx, query, name, description, instructions, reqUser).Scan(
+		&ex.ID,
+		&ex.Name,
+		&ex.Description,
+		&ex.Instruction,
+		&ex.CreatedBy,
+		&ex.CreatedOn,
+		&ex.UpdatedOn,
+	)
 	if err != nil {
 		log.Printf("error executing due to: %s", err)
 		return nil, fmt.Errorf("issue creating exercise due to: %s", err)
 	}
 
 	return &models.Exercise{
-		ID:          uuid.New(),
-		Name:        exercise.Name,
-		Description: exercise.Description,
-		Instruction: exercise.Instruction,
+		ID:          ex.ID,
+		Name:        ex.Name,
+		Description: ex.Description,
+		Instruction: ex.Instruction,
 		CreatedBy:   reqUser,
 	}, nil
 }
