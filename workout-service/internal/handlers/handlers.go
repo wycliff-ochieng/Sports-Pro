@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/google/uuid"
+	//"github.com/google/uuid"
 	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/internal/service"
 	auth "github.com/wycliff-ochieng/sports-common-package/middleware"
@@ -18,18 +18,18 @@ type WorkoutHandler struct {
 	ws     *service.WorkoutService
 }
 
-type ExerciseInCreateWorkoutReq struct {
-	ExerciseID uuid.UUID `json:"exerciseid"` // <-- The tag must match the JSON key
-	Order      int32     `json:"order"`
-	Sets       int32     `json:"sets"`
-	Reps       string    `json:"reps"`
-}
-
 type CreateWorkoutReq struct {
 	Name        string
 	Description string
 	Category    string
-	Exercises   []ExerciseInCreateWorkoutReq
+	Exercises   []models.ExerciseInCreateWorkoutReq
+}
+
+type CreateExerciseReq struct {
+	Name  string
+	Order int
+	Sets  int
+	Reps  int
 }
 
 func NewWorkoutHandler(logger *slog.Logger, ws *service.WorkoutService) *WorkoutHandler {
@@ -94,6 +94,8 @@ func (h *WorkoutHandler) GetAllWorkouts(w http.ResponseWriter, r *http.Request) 
 	limit, err := strconv.Atoi(limitString)
 	if err != nil {
 		log.Printf("error converting limit to integer, %s", err)
+		http.Error(w, "conversion error:", http.StatusExpectationFailed)
+		return
 	}
 
 	minLimit := 1
@@ -135,4 +137,9 @@ func (h *WorkoutHandler) GetAllWorkouts(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(&workouts)
 
 	//
+}
+
+func (h *WorkoutHandler) CreateExercise(w http.ResponseWriter, r *http.Request) {
+	h.logger.Info("Create Exercise Handler now in actions")
+
 }
