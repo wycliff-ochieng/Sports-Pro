@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	//"github.com/google/uuid"
 	"github.com/wycliff-ochieng/internal/models"
@@ -169,4 +171,28 @@ func (h *WorkoutHandler) CreateExercise(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&ex)
 
+}
+
+func (h WorkoutHandler) GetAllExercises(w http.ResponseWriter, r *http.Request) {
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	//get user ID
+
+	userID, err := auth.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		http.Error(w, "issue getting exercises in service layer", http.StatusInternalServerError)
+		return
+	}
+
+	exercises, err := h.ws.GetExercises(ctx, userID)
+	if err != nil {
+		http.Error(w, "error getting exercises from db", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&exercises)
 }
