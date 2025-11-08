@@ -17,16 +17,16 @@ type Workout struct {
 }
 
 type Exercise struct {
-	ID    uuid.UUID
-	Name  string
-	Order int
-	Sets  int
-	Reps  int
-	//Description string
-	//Instruction string
-	//CreatedBy   uuid.UUID
-	CreatedOn time.Time
-	UpdatedOn time.Time
+	ID          uuid.UUID
+	Name        string
+	Order       int
+	Sets        int
+	Reps        int
+	Description string
+	Instruction string
+	CreatedBy   uuid.UUID
+	CreatedOn   time.Time
+	UpdatedOn   time.Time
 }
 
 type WorkoutExerciseResponse struct {
@@ -40,6 +40,12 @@ type WorkoutExerciseResponse struct {
 }
 
 type WorkoutExercise struct{}
+
+type CreateExerciseReq struct {
+	Name         string
+	Description  string
+	Instructions string
+}
 
 type ExerciseInCreateWorkoutReq struct {
 	ExerciseID uuid.UUID `json:"exerciseid"` // <-- The tag must match the JSON key
@@ -78,4 +84,12 @@ type ListWorkoutParams struct {
 type PaginatedWorkout struct {
 	Data       []Workout
 	NextCursor string
+}
+
+func NewExercise(name string, description string, instructions string) (*Exercise, error) {
+	return &Exercise{
+		Name:        name,
+		Description: description,
+		Instruction: instructions,
+	}, nil
 }
