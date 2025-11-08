@@ -694,13 +694,15 @@ func (ws *WorkoutService) CreateExercise(ctx context.Context, reqUser uuid.UUID,
 
 	exercise, err := models.NewExercise(req.Name, req.Description, req.Instructions)
 	if err != nil {
+		log.Printf("error creating exercise due to: %s", err)
 		return nil, fmt.Errorf("issue creating exercise: %s", err)
 	}
 
-	query := `INSERT INTO exercise(id,name,description,instructions,created_by,created_at,updated_at)VALUES($1,$2,$3,$4,$5,$6,$7)`
+	query := `INSERT INTO exercises(id,name,description,instructions,created_by,created_at,updated_at)VALUES($1,$2,$3,$4,$5,$6,$7)`
 
 	_, err = ws.db.ExecContext(ctx, query, ex.ID, ex.Name, ex.Description, ex.Instruction, ex.CreatedBy, ex.CreatedOn, ex.UpdatedOn)
 	if err != nil {
+		log.Printf("error executing due to: %s", err)
 		return nil, fmt.Errorf("issue creating exercise due to: %s", err)
 	}
 
@@ -713,4 +715,42 @@ func (ws *WorkoutService) CreateExercise(ctx context.Context, reqUser uuid.UUID,
 	}, nil
 }
 
-//func(ws *WorkoutService) CreateWorkoutRepo(ctx, )
+func (ws *WorkoutService) GetExercises(ctx context.Context, reqUser uuid.UUID) (*[]models.Exercise, error) {
+	var allExercises []models.Exercise
+
+	query := `SELECT id,name,description,instructions,created_by,created_at,updated_at FROM exercises WHERE id = $1`
+
+	rows, err := ws.db.QueryContext(ctx, query, reqUser)
+	if err != nil {
+		log.Printf("issue fetching exercises due to: %s", err)
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+
+		var exercises models.Exercise
+
+		err := rows.Scan(
+			&exercises.ID,
+			&exercises.Name,
+			&exercises.Description,
+			&exercises.Instruction,
+			&exercises.CreatedBy,
+			&exercises.CreatedOn,
+			&exercises.UpdatedOn,
+		)
+		if err != nil {
+			log.Printf("issue fething exercises in row next due to: %s", err)
+		}
+
+		allExercises = append(allExercises, exercises)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return &allExercises, nil
+}
