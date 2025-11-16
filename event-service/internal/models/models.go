@@ -46,13 +46,21 @@ type AttendanceResponse struct {
 }
 
 type EventDetails struct {
-	EventId    uuid.UUID
+	EventID    uuid.UUID
 	TeamID     uuid.UUID
 	EventName  string
 	Location   string
 	StartTime  time.Time
 	EndTime    time.Time
 	Attendance []AttendanceResponse
+}
+
+type UpdateEventReq struct {
+	Title     string
+	EventType string
+	Location  string
+	StartTime time.Time
+	EndTime   time.Time
 }
 
 func NewEvent(teamID uuid.UUID, name string, eventype string, Location string, start, end time.Time) (*Event, error) {
