@@ -23,7 +23,7 @@ var (
 )
 
 type Events interface {
-	CreateTeamEvent(ctx context.Context, eventID uuid.UUID, teamID uuid.UUID, eventType string, startTime time.Time, endTime time.Time) (*models.Event, error)
+	//CreateTeamEvent(ctx context.Context, eventID uuid.UUID, teamID uuid.UUID, eventTitle string, eventType string, location string, startTime time.Time, endTime time.Time) (*models.Event, error)
 	GetTeamEvents()
 	GetEventByID()
 	UpdateEventDetails()
@@ -37,29 +37,35 @@ type EventService struct {
 	l          *slog.Logger
 }
 
-func NewEventService(db database.DBInterface, teamClient team_proto.TeamRPCClient, userCllient user_proto.UserServiceRPCClient) *EventService {
+func NewEventService(db database.DBInterface, teamClient team_proto.TeamRPCClient, userCllient user_proto.UserServiceRPCClient, logger *slog.Logger) *EventService {
 	return &EventService{
 		db:         db,
 		teamClient: teamClient,
 		userClient: userCllient,
+		l:          logger,
 	}
 }
 
-func (es *EventService) CreateTeamEvent(ctx context.Context, reqUserID uuid.UUID, eventID uuid.UUID, teamID uuid.UUID, eventType string, startTime time.Time, endTime time.Time) (*models.Event, error) {
+func (es *EventService) CreateTeamEvent(ctx context.Context, reqUserID uuid.UUID, eventID uuid.UUID, eventTitle string, teamID uuid.UUID, eventType string, location string, startTime time.Time, endTime time.Time) (*models.Event, error) {
 	//Authorization via gRPC
 	es.l.Info("Creation of event initiated by user")
 
-	var CreateEventReq models.CreateEventReq
+	//var CreateEventReq models.CreateEventReq
 
 	membershipReq := &team_proto.GetTeamMembershipRequest{
-		TeamId: CreateEventReq.TeamID.String(),
+		TeamId: teamID.String(),
 		UserId: []string{reqUserID.String()},
 	}
+
+	//log.Printf("T-ID: %s", CreateEventReq.TeamID)
 
 	members, err := es.teamClient.CheckTeamMembership(ctx, membershipReq)
 	if err != nil {
 		return nil, err
 	}
+
+	log.Printf("User: %s", reqUserID)
+	log.Printf("TeamID: %s", teamID)
 
 	//check response/error from grRPC call- > if user is a member of that team or not and if member is coach/manager
 	membersInfo, found := members.Members[reqUserID.String()]
@@ -71,11 +77,13 @@ func (es *EventService) CreateTeamEvent(ctx context.Context, reqUserID uuid.UUID
 	isAuthorized := membersInfo.Role == "coach" || membersInfo.Role == "manager"
 	if !isAuthorized {
 		es.l.Warn("user is not a coach/manager therefore cant create events")
+		//return nil, err
 	}
+	log.Printf("Role: %s", membersInfo.Role)
 	es.l.Info("Authorization is successfull")
 
 	//get team data for attendance table insert(business logic)
-	teamMembersReq := team_proto.GetTeamSummaryRequest{TeamId: CreateEventReq.TeamID.String()}
+	teamMembersReq := team_proto.GetTeamSummaryRequest{TeamId: teamID.String()}
 	teamMembersRes, err := es.teamClient.GetTeamSummary(ctx, &teamMembersReq)
 	if err != nil {
 		es.l.Error("gRPC call to team service failed")
@@ -95,20 +103,22 @@ func (es *EventService) CreateTeamEvent(ctx context.Context, reqUserID uuid.UUID
 
 	defer txs.Rollback()
 
-	newEvent := &models.Event{
+	/*newEvent := &models.Event{
 		TeamID:    CreateEventReq.TeamID,
 		Title:     CreateEventReq.Name,
 		EventType: CreateEventReq.EventType,
 		Location:  CreateEventReq.Location,
 		StartTime: CreateEventReq.StartTime,
 		EndTime:   CreateEventReq.EndTime,
-	}
+	}*/
 
-	createdEvent, err := es.CreateEvent(ctx, txs, newEvent.TeamID, newEvent.Title, newEvent.EventType, newEvent.Location, newEvent.StartTime, newEvent.EndTime)
+	createdEvent, err := es.CreateEvent(ctx, txs, teamID, eventTitle, eventType, location, startTime, endTime)
 	if err != nil {
 		es.l.Error("error creating event due to ", "error", err)
+		return nil, err
 	}
-	es.l.Info("event created successfully for team", "teamID", createdEvent.TeamID)
+	es.l.Info("event created successfully for team", "teamID", teamID)
+	es.l.Info("event", "createdEvent", createdEvent)
 
 	//write to database the attendace list
 	//prepopulate the initial list
@@ -123,15 +133,18 @@ func (es *EventService) CreateTeamEvent(ctx context.Context, reqUserID uuid.UUID
 			attendanceRecords = append(attendanceRecords, models.Attendance{
 				EventID:    createdEvent.ID,
 				UserID:     memberID,
-				TeamID:     createdEvent.TeamID,
+				TeamID:     teamID,
 				Status:     "PENDING",
 				UpdateteAt: time.Now(),
 			})
 		}
 
+		log.Printf("members: %s", attendanceRecords)
+
 		//insert into attendance table (bulk insert->provides high performance)
-		if err := es.CreateAttendanceInsert(ctx, txs, attendanceRecords); err != nil {
+		if err := es.CreateBulkAttendance(ctx, txs, attendanceRecords); err != nil {
 			es.l.Error("error inserting to iniital attendance table")
+			return nil, err
 		}
 		es.l.Info("bulk rcord attendance created ")
 
@@ -143,46 +156,57 @@ func (es *EventService) CreateTeamEvent(ctx context.Context, reqUserID uuid.UUID
 
 	}
 
-	return nil, nil
+	return &models.Event{}, nil
 }
 
 func (es *EventService) CreateEvent(ctx context.Context, tx *sql.Tx, teamID uuid.UUID, name string, eventtype string, location string, starttime, endtime time.Time) (*models.Event, error) {
 	es.l.Info("Create event database execution")
 
+	var newEvent models.Event
+
 	//var event *models.Event
 
-	newEvent, err := models.NewEvent(teamID, name, eventtype, location, starttime, endtime)
-	if err != nil {
-		es.l.Error("error creating new team event")
-		return nil, fmt.Errorf("due to :%v", err)
-	}
+	//newEvent, err := models.NewEvent(teamID, name, eventtype, location, starttime, endtime)
+	//if err != nil {
+	//	es.l.Error("error creating new team event")
+	//	return nil, fmt.Errorf("due to :%v", err)
+	//}
 
-	query := `INSERT INTO event(event_id,team_id,title,event_type,start_time,end_time) VALUES($1,$2,$3,$4,$5,$6)`
+	query := `INSERT INTO events(event_title,event_type,location,start_time,end_time) VALUES($1,$2,$3,$4,$5)
+	RETURNING event_id,event_title, event_type, location, start_time, end_time`
 
-	_, err = es.db.ExecContext(ctx, query, newEvent.TeamID, newEvent.Title, newEvent.EventType, newEvent.Location, newEvent.StartTime, newEvent.EventType)
+	err := es.db.QueryRowContext(ctx, query, name, eventtype, location, starttime, endtime).Scan(
+		&newEvent.ID,
+		//&newEvent.TeamID,
+		&newEvent.Title,
+		&newEvent.EventType,
+		&newEvent.Location,
+		&newEvent.StartTime,
+		&newEvent.EndTime,
+	)
 	if err != nil {
 		log.Fatalf("Error executing query:%v", err)
-		return nil, err
+		return nil, fmt.Errorf("issue inserting events ")
 	}
 	return &models.Event{
-		ID:        uuid.New(),
-		TeamID:    teamID,
-		Title:     name,
-		EventType: eventtype,
-		Location:  location,
-		StartTime: starttime,
-		EndTime:   endtime,
-	}, nil
+		ID:        newEvent.ID,
+		Title:     newEvent.Title,
+		EventType: newEvent.EventType,
+		Location:  newEvent.Location,
+		StartTime: newEvent.StartTime,
+		EndTime:   newEvent.EndTime,
+	}, err
 }
 
-func (es *EventService) CreateAttendanceInsert(ctx context.Context, tx *sql.Tx, records []models.Attendance) error {
+/*func (es *EventService) CreateAttendanceInsert(ctx context.Context, tx *sql.Tx, records []models.Attendance) error {
 	es.l.Info("Starting bulk insert using database/sql driver")
+
 
 	if len(records) == 0 {
 		return nil
 	}
 
-	sqlStr := `INSERT INTO attendance VALUES(event_id,user_id,status)`
+	sqlStr := `INSERT INTO attendance(event_id,user_id,status) VALUES($1,$2,$3)`
 
 	vals := []interface{}{}
 
@@ -218,6 +242,47 @@ func (es *EventService) CreateAttendanceInsert(ctx context.Context, tx *sql.Tx, 
 	}
 	return nil
 
+
+
+}*/
+
+// Renamed for clarity and purpose. 'Insert' is redundant.
+func (es *EventService) CreateBulkAttendance(ctx context.Context, tx *sql.Tx, records []models.Attendance) error {
+	if len(records) == 0 {
+		return nil
+	}
+
+	// Use a strings.Builder for efficiency.
+	var queryBuilder strings.Builder
+	queryBuilder.WriteString(`INSERT INTO attendance (event_id, user_id, team_id, event_status, updated_at) VALUES `)
+
+	const columnCount = 5
+	vals := make([]interface{}, 0, len(records)*columnCount)
+
+	for i, record := range records {
+		n := i * columnCount
+		// FIX: Generate correct '$' placeholders.
+		queryBuilder.WriteString(fmt.Sprintf("($%d, $%d, $%d, $%d, $%d)", n+1, n+2, n+3, n+4, n+5))
+
+		if i < len(records)-1 {
+			queryBuilder.WriteString(",")
+		}
+
+		// Make sure the values match the columns in the INSERT statement.
+		vals = append(vals, record.EventID, record.UserID, record.TeamID, record.Status, record.UpdateteAt)
+	}
+
+	finalQuery := queryBuilder.String()
+
+	// No need to Prepare; ExecContext is sufficient.
+	_, err := tx.ExecContext(ctx, finalQuery, vals...)
+	if err != nil {
+		// Log and return a wrapped error.
+		log.Printf("failed to execute bulk attendance insert: %v", err)
+		return fmt.Errorf("failed to execute bulk attendance insert: %w", err)
+	}
+
+	return nil
 }
 
 func (es *EventService) GetTeamEvents(ctx context.Context, eventID uuid.UUID, reqUserID uuid.UUID) (*models.EventDetails, error) {
@@ -457,6 +522,8 @@ func (es *EventService) UpdateEvent(ctx context.Context, eventID uuid.UUID, name
 	}
 	return &updateEvent, nil
 }
+
+// DELETE EVENT SERVICE OPEARATION
 
 /*
 func (es *EventService) CreateBulkInsert(ctx context.Context, txs pgx.Tx, attendances []models.Attendance) error {
