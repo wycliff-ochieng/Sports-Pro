@@ -75,6 +75,14 @@ func (s *APIServer) Run() {
 	createEvent.HandleFunc("/api/events/new", eh.CreateEvent)
 	createEvent.Use(authMiddleware)
 
+	getEvents := router.Methods("GET").Subrouter()
+	getEvents.HandleFunc("/api/events/get", eh.GetEventDet)
+	getEvents.Use(authMiddleware)
+
+	updateEvents := router.Methods("PUT").Subrouter()
+	updateEvents.HandleFunc("api/event/{event_id}", eh.UpdateEventDetails)
+	updateEvents.Use(authMiddleware)
+
 	if err := http.ListenAndServe(s.addr, router); err != nil {
 		log.Fatalf("issue with pinging router")
 	}
