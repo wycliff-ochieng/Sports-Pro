@@ -9,7 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/internal/service"
-	auth "github.com/wycliff-ochieng/sports-proto/middleware"
+	auth "github.com/wycliff-ochieng/sports-common-package/middleware"
 )
 
 type EventHandler struct {
@@ -32,6 +32,8 @@ func (eh *EventHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 	var createReq models.CreateEventReq
 
+	log.Printf("Body: %s", r.Body)
+
 	err := json.NewDecoder(r.Body).Decode(&createReq)
 	if err != nil {
 		http.Error(w, "Error decoding create event body data", http.StatusInternalServerError)
@@ -40,6 +42,7 @@ func (eh *EventHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 	reqUserID, err := auth.GetUserUUIDFromContext(ctx)
 	if err != nil {
+		log.Printf("DUE TO: %s", err)
 		http.Error(w, "failed to get the requester userID from context", http.StatusExpectationFailed)
 		return
 	}
@@ -53,8 +56,9 @@ func (eh *EventHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	event, err := eh.es.CreateTeamEvent(ctx, reqUserID, createReq.EventID, createReq.TeamID, createReq.EventType, createReq.StartTime, createReq.EndTime)
+	event, err := eh.es.CreateTeamEvent(ctx, reqUserID, createReq.EventID, createReq.Name, createReq.TeamID, createReq.EventType, createReq.Location, createReq.StartTime, createReq.EndTime)
 	if err != nil {
+		log.Printf("error : due to : %s", err)
 		http.Error(w, "Issue with event creation in event service layer/db ops", http.StatusFailedDependency)
 		return
 	}
@@ -76,7 +80,7 @@ func (eh *EventHandler) GetEventDet(w http.ResponseWriter, r *http.Request) {
 
 	eventID, err := uuid.Parse(eventIDStr)
 	if err != nil {
-		log.Fatalf("failed to convert string to uuid : 5v", err)
+		log.Printf("failed to convert string to uuid : %s", err)
 	}
 
 	reqUSerID, err := auth.GetUserUUIDFromContext(ctx)
