@@ -51,3 +51,28 @@ func (s *Server) CheckTeamMembership(ctx context.Context, req *team_proto.GetTea
 	return &team_proto.GetTeamMembershipResponse{Members: grpcTeamMembers}, nil
 
 }
+
+func (s *Server) GetTeamSummary(ctx context.Context, req *team_proto.GetTeamSummaryRequest) (*team_proto.GetTeamSummaryResponse, error) {
+
+	teamID, err := uuid.Parse(req.TeamId)
+	if err != nil {
+		return nil, err
+	}
+
+	members, err := s.Service.GetTeamsMembers(ctx, teamID)
+	if err != nil {
+		return nil, err
+	}
+
+	//grpcTeamMembers := make(map[string]*team_proto.TeamMember)
+	var grpcTeamMembers []*team_proto.TeamMember
+	for _, m := range members {
+		grpcTeamMembers = append(grpcTeamMembers, &team_proto.TeamMember{
+			UserId: m.UserID.String(),
+			TeamId: m.TeamID.String(),
+			Role:   m.Role,
+		})
+	}
+	return &team_proto.GetTeamSummaryResponse{Members: grpcTeamMembers}, nil
+
+}
