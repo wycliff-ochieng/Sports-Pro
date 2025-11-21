@@ -76,7 +76,9 @@ func (eh *EventHandler) GetEventDet(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	eventIDStr := vars["eventUUID"]
+	eventIDStr := vars["event_id"]
+
+	log.Printf("EventID: %s", eventIDStr)
 
 	eventID, err := uuid.Parse(eventIDStr)
 	if err != nil {
@@ -92,7 +94,7 @@ func (eh *EventHandler) GetEventDet(w http.ResponseWriter, r *http.Request) {
 
 	eventDetails, err := eh.es.GetTeamEvents(ctx, eventID, reqUSerID)
 	if err != nil {
-		log.Println("check service layer transactions-> there is an issue there")
+		log.Printf("check service layer transactions-> there is an issue there: %s", err)
 		http.Error(w, "issue with get teams details function in service layer", http.StatusInternalServerError)
 		return
 	}
