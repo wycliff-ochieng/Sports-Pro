@@ -7,8 +7,10 @@ import (
 	"sports/authservice/internal/config"
 	"sports/authservice/internal/database"
 	"sports/authservice/internal/handlers"
-	"sports/authservice/internal/producer"
+	internal "sports/authservice/internal/producer"
 	"sports/authservice/internal/service"
+
+	corshandlers "github.com/gorilla/handlers"
 
 	"github.com/gorilla/mux"
 )
@@ -43,7 +45,9 @@ func (s *APIServer) Run() {
 	sh := service.NewAuthService(db)
 
 	//kp := producer.PublishUserCreation()
-	ep := internal.NewCreateUser(p,"profiles")
+	ep := internal.NewCreateUser(p, "profiles")
+
+	go ep.DeliveryReportHandler()
 
 	ah := handlers.NewAuthHandler(l, sh, ep)
 
@@ -53,7 +57,15 @@ func (s *APIServer) Run() {
 	loginRouter := router.Methods("POST").Subrouter()
 	loginRouter.HandleFunc("/login", ah.Login)
 
-	if err := http.ListenAndServe(s.addr, router); err != nil {
+	//CORS configuration
+
+	allowedMethods := corshandlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
+	allowedHeaders := corshandlers.AllowedHeaders([]string{"Content-Type", "Authorization"})
+	allowCredentials := corshandlers.AllowCredentials()
+
+	cm := corshandlers.CORS(allowCredentials, allowedMethods, allowedHeaders)(router)
+
+	if err := http.ListenAndServe(s.addr, cm); err != nil {
 		log.Fatalf("error listening to server:%v", err)
 	}
 
