@@ -164,14 +164,6 @@ func (es *EventService) CreateEvent(ctx context.Context, tx *sql.Tx, teamID uuid
 
 	var newEvent models.Event
 
-	//var event *models.Event
-
-	//newEvent, err := models.NewEvent(teamID, name, eventtype, location, starttime, endtime)
-	//if err != nil {
-	//	es.l.Error("error creating new team event")
-	//	return nil, fmt.Errorf("due to :%v", err)
-	//}
-
 	query := `INSERT INTO events(event_title,event_type,location,start_time,end_time) VALUES($1,$2,$3,$4,$5)
 	RETURNING event_id,event_title, event_type, location, start_time, end_time`
 
@@ -197,54 +189,6 @@ func (es *EventService) CreateEvent(ctx context.Context, tx *sql.Tx, teamID uuid
 		EndTime:   newEvent.EndTime,
 	}, err
 }
-
-/*func (es *EventService) CreateAttendanceInsert(ctx context.Context, tx *sql.Tx, records []models.Attendance) error {
-	es.l.Info("Starting bulk insert using database/sql driver")
-
-
-	if len(records) == 0 {
-		return nil
-	}
-
-	sqlStr := `INSERT INTO attendance(event_id,user_id,status) VALUES($1,$2,$3)`
-
-	vals := []interface{}{}
-
-	for i, record := range records {
-		placeHolder1 := i*3 + 1
-		placeHolder2 := i*3 + 2
-		placeHolder3 := i*3 + 3
-
-		sqlStr += fmt.Sprintf("(%d,%d,%d),", placeHolder1, placeHolder2, placeHolder3)
-
-		vals = append(vals, record.EventID, record.UserID, record.Status)
-	}
-
-	sqlStr = strings.TrimSuffix(sqlStr, ",")
-
-	stmt, err := tx.PrepareContext(ctx, sqlStr)
-	if err != nil {
-		return fmt.Errorf("failed to prepare bulk insert due to: %v", err)
-	}
-
-	result, err := stmt.ExecContext(ctx, vals)
-	if err != nil {
-		return fmt.Errorf("failed to execute bulk insert: %v", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("faileed to get rows affected, %v", err)
-	}
-
-	if int(rowsAffected) != len(records) {
-		return fmt.Errorf("bulk insert mismatch %v", err)
-	}
-	return nil
-
-
-
-}*/
 
 // Renamed for clarity and purpose. 'Insert' is redundant.
 func (es *EventService) CreateBulkAttendance(ctx context.Context, tx *sql.Tx, records []models.Attendance) error {
@@ -298,9 +242,17 @@ func (es *EventService) GetTeamEvents(ctx context.Context, eventID uuid.UUID, re
 		return nil, err
 	}
 
+	//call get events
+	event, err := es.GetEvent(ctx, eventID)
+	if err != nil {
+		es.l.Error("Error getting events from database to repository layer")
+		log.Printf("The error: %v", err)
+		return nil, err
+	}
+
 	//gRPC call to team service to check membership
 	memberShipReq := &team_proto.GetTeamMembershipRequest{
-		TeamId: teamID,
+		TeamId: event.TeamID.String(),
 		UserId: []string{reqUserID.String()},
 	}
 
@@ -309,7 +261,9 @@ func (es *EventService) GetTeamEvents(ctx context.Context, eventID uuid.UUID, re
 		return nil, err
 	}
 
-	membersInfo, found := members.Members[teamID]
+	log.Printf("TeamID: %s", event.TeamID.String())
+
+	membersInfo, found := members.Members[reqUserID.String()]
 	if !found {
 		es.l.Info("Check if the requesting userId is a member of this team == reqUserId and teamID match")
 		es.l.Error("userID not is not a member")
@@ -321,14 +275,6 @@ func (es *EventService) GetTeamEvents(ctx context.Context, eventID uuid.UUID, re
 		es.l.Error("user does not posses a role in this team")
 	}
 	es.l.Info("authorization done successfully")
-
-	//call get events
-	event, err := es.GetEvent(ctx, eventID)
-	if err != nil {
-		es.l.Error("Error getting events from database to repository layer")
-		log.Fatalf("The error: %v", err)
-		return nil, err
-	}
 
 	//call get event attendace
 	attendanceList, err := es.GetAttendanceList(ctx, eventID)
@@ -343,7 +289,8 @@ func (es *EventService) GetTeamEvents(ctx context.Context, eventID uuid.UUID, re
 		userIDs = append(userIDs, record.UserID.String())
 	}
 
-	//gRPC data enrichment
+	log.Printf("Attendees IDs: %s", userIDs)
+
 	profileReq := &user_proto.GetUserRequest{
 		Userid: userIDs,
 	}
@@ -404,9 +351,9 @@ func (es *EventService) GetAttendanceList(ctx context.Context, eventID uuid.UUID
 
 	var EventAttendance []*models.Attendance
 
-	query := `SELECT user_id,status FROM attendance WHERE event_id=$1`
+	query := `SELECT user_id,event_status,updated_at FROM attendance WHERE event_id=$1`
 
-	rows, err := es.db.QueryContext(ctx, query)
+	rows, err := es.db.QueryContext(ctx, query, eventID)
 	if err != nil {
 		return nil, err
 	}
@@ -414,8 +361,8 @@ func (es *EventService) GetAttendanceList(ctx context.Context, eventID uuid.UUID
 	for rows.Next() {
 		var attendance models.Attendance
 		err = rows.Scan(
-			&attendance.EventID,
-			&attendance.TeamID,
+			//&attendance.EventID,
+			//&attendance.TeamID,
 			&attendance.UserID,
 			&attendance.Status,
 			&attendance.UpdateteAt,
@@ -432,10 +379,12 @@ func (es *EventService) GetEvent(ctx context.Context, eventID uuid.UUID) (*model
 
 	var event models.Event
 
-	query := `SELECT event_id,name,event_type,location,start_time,end_time FROM events WHERE event_id = $1`
+	//query := `SELECT event_id,event_title,event_type,location,start_time,end_time FROM events WHERE event_id = $1`
+	query := `SELECT e.event_id,a.team_id,e.event_title,e.event_type,e.location,e.start_time,e.end_time FROM events e JOIN attendance a ON e.event_id = a.event_id`
 
-	err := es.db.QueryRowContext(ctx, query, eventID).Scan(
+	err := es.db.QueryRowContext(ctx, query).Scan(
 		&event.ID,
+		&event.TeamID,
 		&event.Title,
 		&event.EventType,
 		&event.Location,
