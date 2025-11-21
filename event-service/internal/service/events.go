@@ -472,64 +472,10 @@ func (es *EventService) UpdateEvent(ctx context.Context, eventID uuid.UUID, name
 	return &updateEvent, nil
 }
 
-// DELETE EVENT SERVICE OPEARATION
-
-/*
-func (es *EventService) CreateBulkInsert(ctx context.Context, txs pgx.Tx, attendances []models.Attendance) error {
-	es.l.Info("Successfully starting bulk insert .... ")
-
-	//pre-allocating outer slice
-	dataRows := make([][]interface{}, 0, len(attendances))
-
-	for _, attendance := range attendances {
-		dataRows = append(dataRows, []interface{}{
-			attendance.EventID,
-			attendance.TeamID,
-			attendance.UserID,
-			attendance.Status,
-			attendance.UpdateteAt,
-		})
-	}
-
-	//execution ->defining tbl indentifiers and colmns
-
-	tableIdentifier := pgx.Identifier{"event_attendance"}
-	columnNames := []string{"event_id", "team_id", "user_id", "status", "updatedat"}
-
-	//perform bulk insert -> use CopyFrom method
-	rowsAffected, err := txs.CopyFrom(ctx, tableIdentifier, columnNames, pgx.CopyFromRows(dataRows))
-	if err != nil {
-		return fmt.Errorf("failed to execute bulk insert most probably due to: %w", err)
-	}
-
-	if int(rowsAffected) != len(attendances) {
-		return fmt.Errorf("bulk insert mismatch, expected to insert %d but only %d was inserted", len(attendances), rowsAffected)
-	}
-	return nil
+func (es *EventService) GetAllevents(ctx context.Context, reqUserID uuid.UUID) ([]*models.Event, error) {
+	return nil, nil
 }
 
-
-func (es *EventService) CreateAttendanceList(ctx context.Context, tx *sql.Tx, event_id, userID uuid.UUID, teamID uuid.UUID, status string, updatedat time.Time) (*models.Attendance, error) {
-	es.l.Info("Creating attendance list")
-
-	attendance, err := models.NewAttendance(event_id, teamID, userID, status, updatedat)
-	if err != nil {
-		return nil, err
-	}
-
-	query := `INSERT INTO attendance(event_id, team_id,user_id, status, updatedat) VALUES($1, $2,$3,$4,$5,$6)`
-
-	_, err = es.db.ExecContext(ctx, query, attendance.EventID, attendance.TeamID, attendance.UserID, attendance.Status, attendance.UpdateteAt)
-	if err != nil {
-		return nil, err
-	}
-
-	return &models.Attendance{
-		EventID:    uuid.New(),
-		TeamID:     teamID,
-		UserID:     userID,
-		Status:     status,
-		UpdateteAt: time.Now(),
-	}, nil
+func (es *EventService) DeleteEvent(ctx context.Context, reqUerId uuid.UUID) (*models.Event, error) {
+	return nil, nil
 }
-*/
