@@ -62,7 +62,12 @@ func (s *APIServer) Run() {
 
 	ep := internal.NewUpdateTeam(p, "team_events")
 
-	userServiceAddress := "localhost:50051" // "user-service-svc:50051"  -> K8s name and grpc port
+	userServiceAddress := os.Getenv("USER_SERVICE_GRPC_ADDR")
+	if userServiceAddress == "" {
+		userServiceAddress = "localhost:50051"
+	}
+
+	//userServiceAddress := "localhost:50051" // "user-service-svc:50051"  -> K8s name and grpc port
 
 	conn, err := grpc.NewClient(userServiceAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
