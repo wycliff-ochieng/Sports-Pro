@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
@@ -65,8 +66,14 @@ func (c *CreateUser) PublishUserCreation(ctx context.Context, userData interface
 }
 
 func InitKafkaProducer() (*kafka.Producer, error) {
+
+	kafkaURL := os.Getenv("KAFKA_BROKER")
+	if kafkaURL == "" {
+		kafkaURL = "localhost:9092"
+	}
+
 	p, err := kafka.NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers": "localhost:9092",
+		"bootstrap.servers": kafkaURL, //"localhost:9092",
 		"client.id":         "wyckie",
 		"acks":              "all",
 	})
