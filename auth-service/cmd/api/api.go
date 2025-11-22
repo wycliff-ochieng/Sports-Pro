@@ -59,11 +59,15 @@ func (s *APIServer) Run() {
 
 	//CORS configuration
 
+	//origins := strings.Split(s.cfg.CORSAllowedOrigins[],",")
+	origins := s.cfg.CORSAllowedOrigins
+
 	allowedMethods := corshandlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
 	allowedHeaders := corshandlers.AllowedHeaders([]string{"Content-Type", "Authorization"})
 	allowCredentials := corshandlers.AllowCredentials()
+	allowedOrigins := corshandlers.AllowedOrigins(origins)
 
-	cm := corshandlers.CORS(allowCredentials, allowedMethods, allowedHeaders)(router)
+	cm := corshandlers.CORS(allowedOrigins, allowCredentials, allowedMethods, allowedHeaders)(router)
 
 	if err := http.ListenAndServe(s.addr, cm); err != nil {
 		log.Fatalf("error listening to server:%v", err)
