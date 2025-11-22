@@ -11,11 +11,11 @@ import (
 type User struct {
 	ID          int       `json:"id"`
 	UserID      uuid.UUID `json:"userid"`
-	FirstName   string    `json:"firstname"`
-	LastName    string    `json:"lastname"`
+	FirstName   string    `json:"firstName"`
+	LastName    string    `json:"lastName"`
 	Email       string    `json:"email"`
 	Password    string    `json:"password"`
-	PhoneNumber int32     `json:"phonenumber"`
+	PhoneNumber int32     `json:"phoneNumber"`
 	Metadata    Metadata  `json:"metadata"`
 	CreatedAT   time.Time `json:"crreatedat"`
 	UpdatedAT   time.Time `json:"updatedat"`
@@ -28,8 +28,8 @@ type Metadata struct {
 type UserResponse struct {
 	ID        int       `json:"id"`
 	UserID    uuid.UUID `json:"userId"`
-	FirstName string    `json:"firstname"`
-	LastName  string    `json:"lastname"`
+	FirstName string    `json:"firstName"`
+	LastName  string    `json:"lastName"`
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"createdat"`
 }
