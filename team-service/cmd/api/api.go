@@ -10,6 +10,8 @@ import (
 
 	rpc "github/wycliff-ochieng/grpc"
 
+	corshandlers "github.com/gorilla/handlers"
+
 	"log"
 	"log/slog"
 	"net/http"
@@ -151,7 +153,16 @@ func (s *APIServer) Run() {
 	deleteTeamMember.HandleFunc("/api/team/{teamid}/member/{user_id}/delete", th.RemoveTeamMember)
 	deleteTeamMember.Use(auth.RequireRole("coach", "manager"))
 
-	if err := http.ListenAndServe(s.addrr, router); err != nil {
+	origins := s.cfg.CORSAllowedOrigins
+
+	allowedMethods := corshandlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
+	allowedHeaders := corshandlers.AllowedHeaders([]string{"Content-Type", "Authorization"})
+	allowCredentials := corshandlers.AllowCredentials()
+	allowedOrigins := corshandlers.AllowedOrigins(origins)
+
+	cm := corshandlers.CORS(allowedOrigins, allowCredentials, allowedMethods, allowedHeaders)(router)
+
+	if err := http.ListenAndServe(s.addrr, cm); err != nil {
 		log.Fatalf("Error setting up router: %v", err)
 	}
 
