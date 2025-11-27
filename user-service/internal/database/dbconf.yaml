@@ -1,0 +1,7 @@
+development:
+  driver: postgres
+  dsn: "user=postgres password=password host=localhost port=5432 dbname=User sslmode=disable"
+
+production:
+  driver: postgres
+  dsn: "user=postgres password=password host=localhost port=5432 dbname=User sslmode=require"
