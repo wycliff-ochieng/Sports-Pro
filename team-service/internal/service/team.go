@@ -43,7 +43,7 @@ func NewTeamService(db database.DBInterface, userClient user_proto.UserServiceRP
 }
 
 // POST :: creating team /api/team/create
-func (ts *TeamService) CreateTeam(ctx context.Context, teamID uuid.UUID, name string, sport string, description string, createdat, updatedat time.Time) (*models.Team, error) {
+func (ts *TeamService) CreateTeam(ctx context.Context, reqUserID uuid.UUID, teamID uuid.UUID, name string, sport string, description string, createdat, updatedat time.Time) (*models.Team, error) {
 
 	var team *models.Team
 
@@ -52,11 +52,33 @@ func (ts *TeamService) CreateTeam(ctx context.Context, teamID uuid.UUID, name st
 		log.Fatalf("error creating new team")
 	}
 
+	txs, err := ts.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	defer txs.Rollback()
+
 	query := `INSERT INTO teams(id,name,sports,description,createdat,updatedat) VALUES($1,$2,$3,$4,$5,$6)`
 
-	_, err = ts.db.ExecContext(ctx, query, team.TeamID, team.Name, team.Sport, team.Description, team.Createdat, team.Updatedat)
-	if err != nil {
+	addMemberQuery := `INSERT INTO team_members(team_id,role,joinedat,user_id) VALUES($1,$2,NOW(),$3)`
+
+	if _, err = txs.ExecContext(ctx, query, team.TeamID, team.Name, team.Sport, team.Description, team.Createdat, team.Updatedat); err != nil {
 		log.Printf("ERROR creating team due to: %v", err)
+		return nil, err
+	}
+
+	//if _,err := txs.ExecContext(ctx,query);err != nil{
+	//	return nil,err
+	//}
+
+	if _, err = txs.ExecContext(ctx, addMemberQuery, team.TeamID, "coach", reqUserID); err != nil {
+		log.Printf("Error creating team due to: %s", err)
+		return nil, err
+	}
+
+	if err = txs.Commit(); err != nil {
+		return nil, err
 	}
 
 	return &models.Team{
@@ -191,7 +213,7 @@ func (ts *TeamService) GetTeamDetails(ctx context.Context, reqUserID uuid.UUID, 
 	log.Println(isTeamMember, "reqUSerID:", reqUserID, "teamID", teamID)
 
 	if !isTeamMember {
-		log.Fatal("Not Team Member :Not allowed to get team details")
+		log.Println("Not Team Member :Not allowed to get team details")
 		return nil, ErrForbidden
 	}
 
