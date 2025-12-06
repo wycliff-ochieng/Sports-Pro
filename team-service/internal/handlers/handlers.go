@@ -53,16 +53,22 @@ func (h *TeamHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 
 	var create *createTeamReq
 
-	err := json.NewDecoder(r.Body).Decode(&create)
+	userID, err := auth.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		http.Error(w, "failed to get userID", http.StatusInternalServerError)
+		return
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&create)
 	if err != nil {
 		h.l.Println("ERROR while marshaling the data")
 		http.Error(w, "Error Decoding request input", http.StatusInternalServerError)
 		return
 	}
 
-	team, err := h.t.CreateTeam(ctx, create.TeamID, create.Name, create.Sport, create.Description, create.Createdat, create.Updatedat)
+	team, err := h.t.CreateTeam(ctx, userID, create.TeamID, create.Name, create.Sport, create.Description, create.Createdat, create.Updatedat)
 	if err != nil {
-		h.l.Println("somethig is wrong in the service transaction")
+		h.l.Printf("somethig is wrong in the service transaction: %s", err)
 		http.Error(w, "FAILED:Error creating team service", http.StatusExpectationFailed)
 		return
 	}
@@ -147,7 +153,7 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	vars := mux.Vars(r)
 
-	teamIDStr := vars["teamID"] // parse this team ID to UUID
+	teamIDStr := vars["team_id"] // parse this team ID to UUID
 
 	teamID, err := uuid.Parse(teamIDStr)
 	if err != nil {
@@ -172,6 +178,7 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 
 	team, err := h.t.UpdateTeamDetails(ctx, teamID, userID, update)
 	if err != nil {
+		log.Printf("FAILING DUE TO: %v", err)
 		http.Error(w, "update team service transaction error", http.StatusFailedDependency)
 		return
 	}
@@ -249,11 +256,13 @@ func (h *TeamHandler) GetTeamRoster(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 
-	teamIDStr := vars["teamid"]
+	teamIDStr := vars["team_id"]
 
 	teamID, err := uuid.Parse(teamIDStr)
 	if err != nil {
-		log.Fatalf("Error changing teamID to uuid")
+		h.l.Printf("invalid team_id path parameter: %v", err)
+		http.Error(w, "invalid team id", http.StatusBadRequest)
+		return
 	}
 
 	members, err := h.t.GetTeamMebers(ctx, teamID, userID)
