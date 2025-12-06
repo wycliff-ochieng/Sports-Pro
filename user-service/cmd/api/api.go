@@ -13,6 +13,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	corshandlers "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	rpc "github.com/wycliff-ochieng/grpc"
 	"github.com/wycliff-ochieng/internal/config"
@@ -21,6 +22,7 @@ import (
 	"github.com/wycliff-ochieng/internal/handlers"
 	internal "github.com/wycliff-ochieng/internal/producer"
 	"github.com/wycliff-ochieng/internal/service"
+	appmiddleware "github.com/wycliff-ochieng/middleware"
 	"github.com/wycliff-ochieng/sports-common-package/user_grpc/user_proto"
 )
 
@@ -38,7 +40,13 @@ func NewAPIServer(addr string, cfg *config.Config) *APIServer {
 
 func (s *APIServer) Run() {
 	l := log.New(os.Stdout, ">>USER_SERVICE FIRING", log.LstdFlags)
-	bootstrapServers := "localhost:9092"
+	//bootstrapServers := "localhost:9092"
+
+	bootstrapServers := os.Getenv("KAFKA_BROKER")
+
+	if bootstrapServers == "" {
+		bootstrapServers = "localhost:9092"
+	}
 	groupID := "foo"
 	topic := "profiles"
 
@@ -84,6 +92,10 @@ func (s *APIServer) Run() {
 	uh := handlers.NewUserHandler(l, us)
 
 	router := mux.NewRouter()
+	router.Use(appmiddleware.UserMiddlware(jwtSecret))
+
+	getUserProfile := router.Methods("GET").Subrouter()
+	getUserProfile.HandleFunc("/profile/get", uh.GetProfileByUUID)
 
 	updateUser := router.Methods("PUT").Subrouter()
 	updateUser.HandleFunc("/update", uh.UpdateUserProfile)
@@ -96,11 +108,6 @@ func (s *APIServer) Run() {
 		log.Fatalf("ERROR spinning up network listener due to: %v", err)
 	}
 
-	//s := grpc.NewServer()
-	//g-rpc.NewServer() := &rpc.Server{
-	//	service :service.UserService{},
-	//	Logger: l,
-	//}
 	grpcServ := grpc.NewServer()
 
 	grpcServer := &rpc.Server{
@@ -113,13 +120,29 @@ func (s *APIServer) Run() {
 	//getUser := router.Methods("GET").Subrouter()
 	//getUser.HandleFunc("/grab", uh.GetUserProfile)
 
+	// Start gRPC server in a goroutine so HTTP server can also start
 	l.Printf("gRPC server listening o port: %v", gRPCAddress)
-	if err := grpcServ.Serve(lis); err != nil {
-		log.Fatalf("Some error spinning up RPC server: %v", err)
-		os.Exit(1)
-	}
+	go func() {
+		if err := grpcServ.Serve(lis); err != nil {
+			log.Fatalf("Some error spinning up RPC server: %v", err)
+		}
+	}()
 
-	if err := http.ListenAndServe(s.addr, router); err != nil {
+	go func() {
+		<-ctx.Done()
+		grpcServ.GracefulStop()
+	}()
+
+	origins := s.cfg.CORSAllowedOrigins
+
+	allowedMethods := corshandlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
+	allowedHeaders := corshandlers.AllowedHeaders([]string{"Content-Type", "Authorization"})
+	allowCredentials := corshandlers.AllowCredentials()
+	allowedOrigins := corshandlers.AllowedOrigins(origins)
+
+	cm := corshandlers.CORS(allowedOrigins, allowCredentials, allowedMethods, allowedHeaders)(router)
+
+	if err := http.ListenAndServe(s.addr, cm); err != nil {
 		log.Printf("Error listeniing %v", err)
 	}
 }
