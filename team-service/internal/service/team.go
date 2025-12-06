@@ -5,11 +5,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github/wycliff-ochieng/internal/config"
 	"github/wycliff-ochieng/internal/database"
 	"github/wycliff-ochieng/internal/models"
 	internal "github/wycliff-ochieng/internal/producer"
 	"log"
 	"time"
+
+	_ "github.com/lib/pq"
 
 	"github.com/google/uuid"
 	"github.com/wycliff-ochieng/sports-common-package/user_grpc/user_proto"
@@ -23,6 +26,7 @@ type TeamService struct {
 	db         database.DBInterface
 	userClient user_proto.UserServiceRPCClient
 	prod       internal.KafkaProducer
+	authDB     *sql.DB
 }
 
 type updateTeamReq struct {
@@ -34,11 +38,31 @@ type updateTeamReq struct {
 	Updatedat   time.Time `json:"updatedat"`
 }
 
-func NewTeamService(db database.DBInterface, userClient user_proto.UserServiceRPCClient, producer internal.KafkaProducer) *TeamService {
+func NewTeamService(db database.DBInterface, userClient user_proto.UserServiceRPCClient, producer internal.KafkaProducer, cfg *config.Config) *TeamService {
+	var authDB *sql.DB
+	if cfg != nil {
+		dsn := fmt.Sprintf(
+			"postgres://%s:%s@%s:%d/%s?sslmode=%s",
+			cfg.DBUser,
+			cfg.DBPassword,
+			cfg.DBHost,
+			cfg.DBPort,
+			cfg.AuthDBName,
+			cfg.DBsslmode,
+		)
+		conn, err := sql.Open("postgres", dsn)
+		if err != nil {
+			log.Printf("warn: failed to connect to auth db for email lookup: %v", err)
+		} else {
+			authDB = conn
+		}
+	}
+
 	return &TeamService{
 		db:         db,
 		userClient: userClient,
 		prod:       producer,
+		authDB:     authDB,
 	}
 }
 
@@ -277,6 +301,12 @@ func (ts *TeamService) GetTeamDetails(ctx context.Context, reqUserID uuid.UUID, 
 		profile, found := userProfilesMap[member.UserID.String()]
 		if !found {
 			log.Println("Warning , team member does no exists in the system")
+			finalResponse.Members = append(finalResponse.Members, models.TeamMembers{
+				TeamID:   member.TeamID,
+				UserID:   member.UserID,
+				Role:     member.Role,
+				Joinedat: member.Joinedat,
+			})
 			continue
 		}
 
@@ -286,10 +316,13 @@ func (ts *TeamService) GetTeamDetails(ctx context.Context, reqUserID uuid.UUID, 
 		}
 
 		finalResponse.Members = append(finalResponse.Members, models.TeamMembers{
-			TeamID:   member.TeamID,
-			UserID:   UserUUID,
-			Role:     member.Role,
-			Joinedat: member.Joinedat,
+			TeamID:    member.TeamID,
+			UserID:    UserUUID,
+			Role:      member.Role,
+			Joinedat:  member.Joinedat,
+			Firstname: profile.GetFirstname(),
+			Lastname:  profile.GetLastname(),
+			Email:     profile.GetEmail(),
 		})
 	}
 	return &finalResponse, nil
@@ -371,6 +404,32 @@ func (ts *TeamService) GetRoleForUser(ctx context.Context, teamID uuid.UUID, use
 	return role, nil
 }
 
+// resolveUserIdentifier accepts either a UUID string or an email address and returns a user UUID.
+func (ts *TeamService) resolveUserIdentifier(ctx context.Context, identifier string) (uuid.UUID, error) {
+	if identifier == "" {
+		return uuid.Nil, fmt.Errorf("empty user identifier")
+	}
+
+	if parsed, err := uuid.Parse(identifier); err == nil {
+		return parsed, nil
+	}
+
+	if ts.authDB == nil {
+		return uuid.Nil, fmt.Errorf("email lookup unavailable")
+	}
+
+	var userID uuid.UUID
+	query := `SELECT userid FROM users WHERE email = $1 LIMIT 1`
+	if err := ts.authDB.QueryRowContext(ctx, query, identifier).Scan(&userID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return uuid.Nil, fmt.Errorf("user not found for email")
+		}
+		return uuid.Nil, err
+	}
+
+	return userID, nil
+}
+
 // Add a memeber to a team -> POST
 func (ts *TeamService) AddTeamMember(ctx context.Context, teamID uuid.UUID, reqUserID uuid.UUID, addMember models.AddMemberReq) (*models.TeamMembers, error) {
 
@@ -397,12 +456,13 @@ func (ts *TeamService) AddTeamMember(ctx context.Context, teamID uuid.UUID, reqU
 		return nil, ErrForbidden
 	}
 
-	//check if user being added to the team exists in the system
-	//Will need to make a gRPC call to user-service
-	//TODO:: - > implementing gRPC communication
-	//profiles,err
+	// Resolve target user from UUID or email
+	resolvedUserID, err := ts.resolveUserIdentifier(ctx, addMember.Identifier)
+	if err != nil {
+		return nil, err
+	}
+	addMember.UserID = resolvedUserID
 
-	//i've assumed the user exists in the system
 	addedMember, err := ts.AddMember(ctx, teamID, addMember)
 	if err != nil {
 		log.Fatal("Error: Failed to add Member to team due to: ")
@@ -417,18 +477,21 @@ func (ts *TeamService) AddTeamMember(ctx context.Context, teamID uuid.UUID, reqU
 }
 
 func (ts *TeamService) AddMember(ctx context.Context, teamID uuid.UUID, addedMember models.AddMemberReq) (*models.TeamMembers, error) {
-	var member models.TeamMembers
-	query := `INSERT INTO team_members(team_id,role,joinedat,user_id,) VALUES($1,$2,$3,$4)`
+	joinedAt := addedMember.Joinedat
+	if joinedAt.IsZero() {
+		joinedAt = time.Now().UTC()
+	}
 
-	_, err := ts.db.ExecContext(ctx, query, member.TeamID, member.Role, member.Joinedat, member.UserID)
-	if err != nil {
+	query := `INSERT INTO team_members(team_id,role,joinedat,user_id) VALUES($1,$2,$3,$4)`
+
+	if _, err := ts.db.ExecContext(ctx, query, teamID, addedMember.Role, joinedAt, addedMember.UserID); err != nil {
 		return nil, err
 	}
 
 	return &models.TeamMembers{
 		TeamID:   teamID,
 		Role:     addedMember.Role,
-		Joinedat: addedMember.Joinedat,
+		Joinedat: joinedAt,
 		UserID:   addedMember.UserID,
 	}, nil
 }
@@ -472,23 +535,20 @@ func (ts *TeamService) GetTeamMebers(ctx context.Context, teamID uuid.UUID, user
 
 	userMembersMap := profileRes.Profiles
 
-	var finalTeamList []models.TeamMembersResponse
-
-	finalTeamList = make([]models.TeamMembersResponse, len(totalMembers))
+	finalTeamList := make([]models.TeamMembersResponse, 0, len(totalMembers))
 
 	for _, member := range totalMembers {
 		profile, found := userMembersMap[member.UserID.String()]
-
 		if !found {
-			log.Println("user not found")
+			log.Println("user not found in profile map; using defaults")
 		}
 
 		mergedList := models.TeamMembersResponse{
 			UserID:    member.UserID,
-			Firstname: profile.Firstname,
-			Lastname:  profile.Lastname,
-			Email:     profile.Email,
-			//	Createdat: profile.Createdat,
+			Firstname: profile.GetFirstname(),
+			Lastname:  profile.GetLastname(),
+			Email:     profile.GetEmail(),
+			Createdat: member.Joinedat,
 		}
 
 		finalTeamList = append(finalTeamList, mergedList)
