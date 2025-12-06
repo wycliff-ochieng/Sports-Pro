@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	corshandlers "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/wycliff-ochieng/internal/config"
 	"github.com/wycliff-ochieng/internal/database"
@@ -50,18 +51,25 @@ func (s *APIServer) Run() {
 
 	teamServiceAddress := "localhost:50052" //k8s service name and port
 
-	conn, err := grpc.NewClient(teamServiceAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	userServiceAddress := "localhost:50051"
+
+	teamConn, err := grpc.NewClient(teamServiceAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Error setting up grpc client: %v", err)
 	}
 
-	defer conn.Close()
+	defer teamConn.Close()
 
 	//set up teamServiceClient
-	teamClient := team_proto.NewTeamRPCClient(conn)
+	teamClient := team_proto.NewTeamRPCClient(teamConn)
+
+	userConn, err := grpc.NewClient(userServiceAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("Error setting up user service grpc client due to: %s", err)
+	}
 
 	//user Client
-	userClient := user_proto.NewUserServiceRPCClient(conn)
+	userClient := user_proto.NewUserServiceRPCClient(userConn)
 
 	es := service.NewEventService(db, teamClient, userClient, logger)
 
@@ -76,14 +84,23 @@ func (s *APIServer) Run() {
 	createEvent.Use(authMiddleware)
 
 	getEvents := router.Methods("GET").Subrouter()
-	getEvents.HandleFunc("/api/events/get", eh.GetEventDet)
+	getEvents.HandleFunc("/api/events/get/{event_id}", eh.GetEventDet)
 	getEvents.Use(authMiddleware)
 
 	updateEvents := router.Methods("PUT").Subrouter()
 	updateEvents.HandleFunc("api/event/{event_id}", eh.UpdateEventDetails)
 	updateEvents.Use(authMiddleware)
 
-	if err := http.ListenAndServe(s.addr, router); err != nil {
-		log.Fatalf("issue with pinging router")
+	origins := s.cfg.CORSAllowedOrigins
+
+	allowedMethods := corshandlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
+	allowedHeaders := corshandlers.AllowedHeaders([]string{"Content-Type", "Authorization"})
+	allowCredentials := corshandlers.AllowCredentials()
+	allowedOrigins := corshandlers.AllowedOrigins(origins)
+
+	cm := corshandlers.CORS(allowedOrigins, allowCredentials, allowedMethods, allowedHeaders)(router)
+
+	if err := http.ListenAndServe(s.addr, cm); err != nil {
+		log.Printf("issue with pinging router: %s", err)
 	}
 }
