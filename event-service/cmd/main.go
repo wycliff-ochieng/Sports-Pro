@@ -16,7 +16,7 @@ func main() {
 		log.Fatalf("ERROR loading ENV variables:%v", err)
 	}
 
-	server := api.NewAPIServer(":3000", cfg)
+	server := api.NewAPIServer(":7000", cfg)
 	server.Run()
 
 }
