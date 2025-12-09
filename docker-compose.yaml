@@ -15,17 +15,22 @@ services:
     networks:
       - sports-app-net
 
-  #user_db:
-  #  image:  postgres:15
-  #  container_name: user_db
-  #  environment:
-  #    POSTGRES_DB: Users
-  #    POSTGRES_USER: admin
-  #    POSTGRES_PASSWORD: admin123
-  #  ports:
-  #    - "5434:5433"
-  #  volumes:
-  #    - /mnt/postgres:/var/lib/postgresql/data
+  minio:
+    image: minio/minio:latest
+    container_name: minio_sports_project
+    ports:
+      - "9000:9000" # API Port (Code connects here)
+      - "9001:9001" # Console Port (Browser UI)
+    environment:
+      MINIO_ROOT_USER: "admin"
+      MINIO_ROOT_PASSWORD: "password123"
+    volumes:
+      # This saves your images to a folder named 'minio_data' in the same directory
+      - ./minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    networks:
+      - sports-app-net
 
   sports-zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -120,7 +125,7 @@ services:
       - DB_PORT=5432
       - DB_USER=admin
       - DB_PASSWORD=admin123
-      - DB_NAME=events
+      - DB_NAME=teams
       - USER_SERVICE_GRPC_ADDR=user-service:50051
       - TEAM_SERVICE_GRPC_ADDR=team-service:50052
     depends_on:
