@@ -161,7 +161,7 @@ func (h *WorkoutHandler) CreateExercise(w http.ResponseWriter, r *http.Request) 
 
 	//call service layer
 
-	ex, err := h.ws.CreateExercise(ctx, userID, &exercise)
+	ex, err := h.ws.CreateExercise(ctx, userID, exercise.Name, exercise.Description, exercise.Instructions)
 	if err != nil {
 		http.Error(w, "some error in service layer during creation", http.StatusInternalServerError)
 		return
@@ -173,7 +173,7 @@ func (h *WorkoutHandler) CreateExercise(w http.ResponseWriter, r *http.Request) 
 
 }
 
-func (h WorkoutHandler) GetAllExercises(w http.ResponseWriter, r *http.Request) {
+func (h *WorkoutHandler) GetAllExercises(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
@@ -195,4 +195,36 @@ func (h WorkoutHandler) GetAllExercises(w http.ResponseWriter, r *http.Request) 
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&exercises)
+}
+
+func (h *WorkoutHandler) GetWorkotDetail(w http.ResponseWriter, r *http.Request) {
+	h.logger.Info("Get a single Workout detail page")
+	return
+}
+
+func (h *WorkoutHandler) GetExerciseDetail(w http.ResponseWriter, r *http.Request) {
+	h.logger.Info("Geting an exercise by specific ID")
+	return
+}
+
+func (h *WorkoutHandler) MediaPresignedURL(w http.ResponseWriter, r *http.Request) {
+	h.logger.Info("Media upload temporary URL")
+
+	ctx := r.Context()
+
+	//send file metadata not file
+
+	var Metadata *models.PresignedURLReq
+
+	err := json.NewDecoder(r.Body).Decode(&Metadata)
+	if err != nil {
+		http.Error(w, "Issue decoding URL metadata", http.StatusInternalServerError)
+		return
+	}
+
+	user, err := auth.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		http.Error(w, "failed to get uuid from contextx", http.StatusFailedDependency)
+		return
+	}
 }
