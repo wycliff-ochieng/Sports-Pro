@@ -9,7 +9,8 @@ import (
 	"strconv"
 	"time"
 
-	//"github.com/google/uuid"
+	"github.com/google/uuid"
+	//"github.com/gofrs/uuid"
 	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/internal/service"
 	auth "github.com/wycliff-ochieng/sports-common-package/middleware"
@@ -231,7 +232,7 @@ func (h *WorkoutHandler) MediaPresignedURL(w http.ResponseWriter, r *http.Reques
 	var AllowedContent = []string{"image/jpeg", "image/png"}
 
 	if Metadata.ParentType != "workout" && Metadata.ParentType != "exercise" {
-		http.Error(w, "invlaid parent type", http.StatusBadRequest)
+		http.Error(w, "invalid parent type", http.StatusBadRequest)
 		return
 		//if Metadata.MimeType == AllowedContent[]
 	}
@@ -259,4 +260,34 @@ func (h *WorkoutHandler) MediaPresignedURL(w http.ResponseWriter, r *http.Reques
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&presignedURL)
+}
+
+func (h *WorkoutHandler) UploadComplete(w http.ResponseWriter, r *http.Request) {
+	h.logger.Info("Media upload complete handler")
+
+	ctx := r.Context()
+
+	var req models.MediaUploadCompleteReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Issue decoding request body", http.StatusBadRequest)
+		return
+	}
+
+	// Basic validation
+	if req.ParentID == uuid.Nil || req.ObjectKey == "" || req.Filename == "" {
+		http.Error(w, "Missing required fields", http.StatusBadRequest)
+		return
+	}
+
+	// Call service
+	media, err := h.ws.SaveMediaMetadata(ctx, &req)
+	if err != nil {
+		h.logger.Error("Failed to save media metadata", "error", err)
+		http.Error(w, "Failed to save media metadata", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(media)
 }
