@@ -84,10 +84,19 @@ type PaginatedWorkout struct {
 }
 
 type PresignedURLReq struct {
-	ParentID   uuid.UUID
-	ParentType string
-	Filename   string
-	MimeType   string
+	ParentID   uuid.UUID `json:"parent_id"`
+	ParentType string    `json:"parent_type"`
+	Filename   string    `json:"file_name"`
+	MimeType   string    `json:"mime_type"`
+}
+
+type MediaUploadCompleteReq struct {
+	ParentID   uuid.UUID `json:"parent_id"`
+	ParentType string    `json:"parent_type"`
+	ObjectKey  string    `json:"object_key"`
+	Filename   string    `json:"file_name"`
+	MimeType   string    `json:"mime_type"`
+	BucketName string    `json:"bucket_name"`
 }
 
 type PresignedURLRes struct {
