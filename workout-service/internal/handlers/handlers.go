@@ -222,9 +222,19 @@ func (h *WorkoutHandler) MediaPresignedURL(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	user, err := auth.GetUserUUIDFromContext(ctx)
+	userID, err := auth.GetUserUUIDFromContext(ctx)
 	if err != nil {
 		http.Error(w, "failed to get uuid from contextx", http.StatusFailedDependency)
 		return
 	}
+
+	var AllowedContent = []string{"image/jpeg", "image/png"}
+
+	if Metadata.ParentType != "workout" || Metadata.ParentType != "exercise" || Metadata.MimeType != AllowedContent {
+		http.Error(w, "invlaid parent type", http.StatusBadRequest)
+		return
+	}
+
+	//call service layer
+	presignedURL, err := h.ws.GeneratePresignedURL()
 }
