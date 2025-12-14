@@ -34,11 +34,11 @@ func (s *Server) Run() {
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
-	bucketName := "sportspro"
-	useSSL := false
-	accesskey := "4XET6XMT3LP810RYWGCO"
-	secretKey := "2ai9tXU0mGV+1gVxQeEAfhSv+SgbOMKekRE6PqOA"
-	endpoint := "localhost:3000"
+	bucketName := s.cfg.MinIOBucket   //os.Getenv("MINIO_BUCKET")    //"sportspro"
+	useSSL := false                   //os.Getenv("MINIO_USE_SSL")
+	accesskey := s.cfg.MinIOAccessKey //os.Getenv("MINIO_ACCESS_KEY") //"4XET6XMT3LP810RYWGCO"
+	secretKey := s.cfg.MinIOSecretKey //os.Getenv("MINIO_SECRET_KEY") //"2ai9tXU0mGV+1gVxQeEAfhSv+SgbOMKekRE6PqOA"
+	endpoint := s.cfg.MinIOEndpoint   //"localhost:3000"               //os.Getenv("MINIO_ENDPOINT")    //localhost:9001
 
 	//setup middleware
 	authMiddleware := auth.AuthMiddleware(s.cfg.JWTSecret, logger)
@@ -85,6 +85,11 @@ func (s *Server) Run() {
 	getExercises := router.Methods("GET").Subrouter()
 	getExercises.HandleFunc("/api/exercise/fetch", wh.GetAllExercises)
 	getExercises.Use(authMiddleware)
+
+	preURL := router.Methods("POST").Subrouter()
+	preURL.HandleFunc("/api/media/presigned-url", wh.MediaPresignedURL)
+	preURL.HandleFunc("/api/media/upload-complete", wh.UploadComplete)
+	preURL.Use(authMiddleware)
 
 	if err := http.ListenAndServe(s.addr, router); err != nil {
 		log.Printf("error listening to the address, %s", err)
