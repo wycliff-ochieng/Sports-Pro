@@ -19,9 +19,6 @@ type Workout struct {
 type Exercise struct {
 	ID          uuid.UUID
 	Name        string
-	Order       int
-	Sets        int
-	Reps        int
 	Description string
 	Instruction string
 	CreatedBy   uuid.UUID
@@ -64,15 +61,15 @@ type CreateWorkoutResponse struct {
 }
 
 type Media struct {
-	ID             uuid.UUID
-	ParentID       uuid.UUID
-	PArentType     string
-	StorageProvide string
-	BucketName     string
-	ObjectKey      string
-	Filename       string
-	MimeType       string
-	UploadedAT     time.Time
+	ID              uuid.UUID
+	ParentID        uuid.UUID
+	ParentType      string
+	StorageProvider string
+	BucketName      string
+	ObjectKey       string
+	Filename        string
+	MimeType        string
+	UploadedAT      time.Time
 }
 
 type ListWorkoutParams struct {
@@ -84,6 +81,19 @@ type ListWorkoutParams struct {
 type PaginatedWorkout struct {
 	Data       []Workout
 	NextCursor string
+}
+
+type PresignedURLReq struct {
+	ParentID   uuid.UUID
+	ParentType string
+	Filename   string
+	MimeType   string
+}
+
+type PresignedURLRes struct {
+	UploadURL string
+	ObjectKey string
+	ExpiresAT time.Time
 }
 
 func NewExercise(name string, description string, instructions string) (*Exercise, error) {
