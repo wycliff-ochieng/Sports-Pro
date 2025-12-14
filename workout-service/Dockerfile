@@ -31,6 +31,6 @@ COPY --from=builder /dist/main /
 
 COPY --from=builder /app/internal/database/migrations ./internal/database/migrations
 
-EXPOSE 8000
+EXPOSE 3000
 
 ENTRYPOINT ["/main"]
