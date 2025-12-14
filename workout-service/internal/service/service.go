@@ -35,10 +35,11 @@ type WorkoutService struct {
 	mnClient   *filestore.FileStore
 }
 
-func NewWorkoutService(db database.DBInterface, client user_proto.UserServiceRPCClient) *WorkoutService {
+func NewWorkoutService(db database.DBInterface, client user_proto.UserServiceRPCClient, minIOClient *filestore.FileStore) *WorkoutService {
 	return &WorkoutService{
 		db:         db,
 		userClient: client,
+		mnClient:   minIOClient,
 	}
 }
 
@@ -501,8 +502,10 @@ func (ws *WorkoutService) GeneratePresignedURL(ctx context.Context, reqUser uuid
 
 	//connect /talk to MinIO
 	url, err := ws.mnClient.Client.PresignedPutObject(ctx, ws.mnClient.Bucket, filePath, expiry)
+	log.Printf("bucket: %s", ws.mnClient.Bucket)
 	if err != nil {
 		log.Printf("error generating url due to :%s", err)
+		return nil, err
 	}
 
 	return &models.PresignedURLRes{
@@ -510,4 +513,51 @@ func (ws *WorkoutService) GeneratePresignedURL(ctx context.Context, reqUser uuid
 		ObjectKey: filePath,
 		ExpiresAT: time.Now().Add(expiry),
 	}, err
+}
+
+func (ws *WorkoutService) SaveMediaMetadata(ctx context.Context, req *models.MediaUploadCompleteReq) (*models.Media, error) {
+	// 1. Validate ParentType (must be 'workout' or 'exercise')
+	// Note: The DB constraint is uppercase 'WORKOUT'/'EXERCISE', so we might need to normalize.
+	// But let's assume the frontend sends lowercase and we convert, or we adjust the DB.
+	// The migration says: CHECK (parent_type IN ('WORKOUT', 'EXERCISE'))
+	// So we should convert to uppercase.
+
+	parentTypeUpper := strings.ToUpper(req.ParentType)
+	if parentTypeUpper != "WORKOUT" && parentTypeUpper != "EXERCISE" {
+		return nil, fmt.Errorf("invalid parent type: %s", req.ParentType)
+	}
+
+	// 2. Insert into DB
+	query := `
+		INSERT INTO media (parent_id, parent_type, storage_provider, bucket_name, object_key, file_name, mime_type)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, uploaded_at
+	`
+
+	var media models.Media
+	err := ws.db.QueryRowContext(ctx, query,
+		req.ParentID,
+		parentTypeUpper,
+		"MinIO", // or "S3"
+		req.BucketName,
+		req.ObjectKey,
+		req.Filename,
+		req.MimeType,
+	).Scan(&media.ID, &media.UploadedAT)
+
+	if err != nil {
+		log.Printf("error inserting media metadata: %v", err)
+		return nil, err
+	}
+
+	// Populate the rest of the struct to return
+	media.ParentID = req.ParentID
+	media.ParentType = parentTypeUpper
+	media.StorageProvider = "MinIO"
+	media.BucketName = req.BucketName
+	media.ObjectKey = req.ObjectKey
+	media.Filename = req.Filename
+	media.MimeType = req.MimeType
+
+	return &media, nil
 }
