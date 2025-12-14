@@ -230,11 +230,33 @@ func (h *WorkoutHandler) MediaPresignedURL(w http.ResponseWriter, r *http.Reques
 
 	var AllowedContent = []string{"image/jpeg", "image/png"}
 
-	if Metadata.ParentType != "workout" || Metadata.ParentType != "exercise" || Metadata.MimeType != AllowedContent {
+	if Metadata.ParentType != "workout" && Metadata.ParentType != "exercise" {
 		http.Error(w, "invlaid parent type", http.StatusBadRequest)
+		return
+		//if Metadata.MimeType == AllowedContent[]
+	}
+
+	isAllowed := false
+	for _, allowed := range AllowedContent {
+		if Metadata.MimeType == allowed {
+			isAllowed = true
+			break
+		}
+	}
+
+	if !isAllowed {
+		http.Error(w, "Please upload the required content type", http.StatusExpectationFailed)
 		return
 	}
 
 	//call service layer
-	presignedURL, err := h.ws.GeneratePresignedURL()
+	presignedURL, err := h.ws.GeneratePresignedURL(ctx, userID, Metadata)
+	if err != nil {
+		http.Error(w, "issue generating presigned url in service layer", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&presignedURL)
 }
