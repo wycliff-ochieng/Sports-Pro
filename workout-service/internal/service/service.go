@@ -491,14 +491,23 @@ func (ws *WorkoutService) GetExercises(ctx context.Context, reqUser uuid.UUID) (
 }
 
 // frontend->Go(Backend)->MiniIO
-func (ws *WorkoutService) GeneratePresignedURL(ctx context.Context, req *models.PresignedURLReq) (*models.PresignedURLRes, error) {
+func (ws *WorkoutService) GeneratePresignedURL(ctx context.Context, reqUser uuid.UUID, req *models.PresignedURLReq) (*models.PresignedURLRes, error) {
 
 	//create patth
-	filePath := fmt.Sprintf("%s/%s/%s-%s", req.ParentType, req.ParentID, uuid.New(), req.Filename)
+	filePath := fmt.Sprintf("%s/%s/%s-%s", req.ParentType, req.ParentID, uuid.New().String(), req.Filename)
+
+	//bucket :=
+	expiry := 15 * time.Second
 
 	//connect /talk to MinIO
-	url, err := ws.mnClient.Client.PresignedPutObject(ctx, bucket, filePath, 10*time.Second)
+	url, err := ws.mnClient.Client.PresignedPutObject(ctx, ws.mnClient.Bucket, filePath, expiry)
 	if err != nil {
-		fmt.Errorf("error generating url due to :%s", err)
+		log.Printf("error generating url due to :%s", err)
 	}
+
+	return &models.PresignedURLRes{
+		UploadURL: url.String(),
+		ObjectKey: filePath,
+		ExpiresAT: time.Now().Add(expiry),
+	}, err
 }
