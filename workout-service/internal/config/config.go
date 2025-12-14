@@ -16,10 +16,15 @@ type Config struct {
 	DBUser     string
 	DBsslmode  string
 
-	JWTSecret     string
-	JWTExpiry     string
-	RefreshSecret string
-	RefreshExpiry string
+	JWTSecret      string
+	JWTExpiry      string
+	RefreshSecret  string
+	RefreshExpiry  string
+	MinIOEndpoint  string
+	MinIOAccessKey string
+	MinIOSecretKey string
+	MinIOBucket    string
+	//MinIOSSL bool
 }
 
 func Load() (*Config, error) {
@@ -37,6 +42,11 @@ func Load() (*Config, error) {
 	config.DBsslmode = getEnv("DB_SSLMODE", "disable")
 	config.JWTSecret = getEnv("JWT_SECRET", "mydogsnameisrufus")
 	config.RefreshSecret = getEnv("REFRESH_SECRET", "myotherdogiscalledseedolf")
+	config.MinIOEndpoint = getEnv("MINIO_ENDPOINT", "localhost:9000")
+	config.MinIOAccessKey = getEnv("MINIO_ACCESS_KEY", "")
+	config.MinIOSecretKey = getEnv("MINIO_SECRET_KEY", "")
+	config.MinIOBucket = getEnv("MINIO_BUCKET", "sportspro")
+	//config.MinIOSSL = getEnv("MINIO_USE_SSL",false)
 
 	return config, nil
 }
