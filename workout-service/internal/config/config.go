@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -25,6 +26,7 @@ type Config struct {
 	MinIOSecretKey string
 	MinIOBucket    string
 	//MinIOSSL bool
+	CORSAllowedOrigins []string
 }
 
 func Load() (*Config, error) {
@@ -47,6 +49,7 @@ func Load() (*Config, error) {
 	config.MinIOSecretKey = getEnv("MINIO_SECRET_KEY", "")
 	config.MinIOBucket = getEnv("MINIO_BUCKET", "sportspro")
 	//config.MinIOSSL = getEnv("MINIO_USE_SSL",false)
+	config.CORSAllowedOrigins = getEnvAsSlice("CORS_ALLOWED_ORIGINS", []string{"http://localhost:5173"}, ",")
 
 	return config, nil
 }
@@ -64,4 +67,12 @@ func getEnvAsInt(key string, defaultValue int) int {
 		return value
 	}
 	return defaultValue
+}
+
+func getEnvAsSlice(key string, defaultValue []string, separator string) []string {
+	valueStr := getEnv(key, "")
+	if valueStr == "" {
+		return defaultValue
+	}
+	return strings.Split(valueStr, separator)
 }
