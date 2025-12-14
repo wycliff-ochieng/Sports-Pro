@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	corshandlers "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/wycliff-ochieng/internal/config"
 	"github.com/wycliff-ochieng/internal/database"
@@ -91,7 +92,16 @@ func (s *Server) Run() {
 	preURL.HandleFunc("/api/media/upload-complete", wh.UploadComplete)
 	preURL.Use(authMiddleware)
 
-	if err := http.ListenAndServe(s.addr, router); err != nil {
+	origins := s.cfg.CORSAllowedOrigins
+
+	allowedMethods := corshandlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
+	allowedHeaders := corshandlers.AllowedHeaders([]string{"Content-Type", "Authorization"})
+	allowCredentials := corshandlers.AllowCredentials()
+	allowedOrigins := corshandlers.AllowedOrigins(origins)
+
+	cm := corshandlers.CORS(allowedOrigins, allowCredentials, allowedMethods, allowedHeaders)(router)
+
+	if err := http.ListenAndServe(s.addr, cm); err != nil {
 		log.Printf("error listening to the address, %s", err)
 	}
 }
