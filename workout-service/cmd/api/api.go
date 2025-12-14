@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/wycliff-ochieng/internal/config"
 	"github.com/wycliff-ochieng/internal/database"
+	"github.com/wycliff-ochieng/internal/filestore"
 	"github.com/wycliff-ochieng/internal/handlers"
 	"github.com/wycliff-ochieng/internal/service"
 	auth "github.com/wycliff-ochieng/sports-common-package/middleware"
@@ -33,6 +34,11 @@ func (s *Server) Run() {
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
+	bucketName := "sportspro"
+	useSSL := false
+	accesskey := "4XET6XMT3LP810RYWGCO"
+	secretKey := "2ai9tXU0mGV+1gVxQeEAfhSv+SgbOMKekRE6PqOA"
+	endpoint := "localhost:3000"
 
 	//setup middleware
 	authMiddleware := auth.AuthMiddleware(s.cfg.JWTSecret, logger)
@@ -40,6 +46,11 @@ func (s *Server) Run() {
 	db, err := database.NewPostgresDB(s.cfg)
 	if err != nil {
 		log.Printf("setting up database error: %s", err)
+	}
+
+	fs, err := filestore.NewFileStore(endpoint, accesskey, secretKey, bucketName, useSSL)
+	if err != nil {
+		log.Printf("issue setting up minio due to : %s", err)
 	}
 
 	userServiceAddress := "localhost:50051" // "user-service-svc:50051"  -> K8s name and grpc port
@@ -53,7 +64,7 @@ func (s *Server) Run() {
 
 	userClient := user_proto.NewUserServiceRPCClient(conn)
 
-	ws := service.NewWorkoutService(db, userClient)
+	ws := service.NewWorkoutService(db, userClient, fs)
 
 	wh := handlers.NewWorkoutHandler(logger, ws)
 
@@ -70,6 +81,10 @@ func (s *Server) Run() {
 	createExercise := router.Methods("POST").Subrouter()
 	createExercise.HandleFunc("/api/exercise", wh.CreateExercise)
 	createExercise.Use(authMiddleware)
+
+	getExercises := router.Methods("GET").Subrouter()
+	getExercises.HandleFunc("/api/exercise/fetch", wh.GetAllExercises)
+	getExercises.Use(authMiddleware)
 
 	if err := http.ListenAndServe(s.addr, router); err != nil {
 		log.Printf("error listening to the address, %s", err)
