@@ -1,69 +1,144 @@
-## Sports Management Platform - Microservices Backend
-This repository contains the backend source code for the Sports Management Platform, a high-performance, scalable application built using a microservices architecture in Go. The platform is designed to handle user authentication, team management, event scheduling, and more, with a focus on security, resilience, and maintainability.
+# Sports Management Platform (Backend)
 
-### 1. High-Level Architecture
-The platform follows a classic microservices pattern where each service is independently deployable, scalable, and owns its own data. Services communicate via a combination of synchronous gRPC calls for immediate requests and an asynchronous Kafka event bus for decoupled communication and data synchronization.
+Modern microservices backend in Go for authentication, teams, events, workouts, and shared packages. This README explains the architecture, service roles, communication patterns, and key design decisions. A Mermaid diagram is provided for quick visualization.
 
-### 2. Core Technologies
-- Language: Go (Golang)
-- Databases:
-- PostgreSQL: Primary relational database for core service data.
-- Redis: In-memory cache for sessions and frequently accessed data.
-- Communication:
-    * REST: For external, client-facing APIs.
-    * gRPC: For high-performance, internal service-to-service communication.
-    * Kafka: For asynchronous, event-driven communication between services.
-- Containerization: Docker & Docker Compose for local development. Docker and Kubernetes for Production
-- Database Migrations: Goose for managing SQL schema evolution.
-- Authentication: JSON Web Tokens (JWT).
+## System Architecture
 
-### 3. Microservice Overview
-**AUTHENTICATION_SERVICE**
-* Responsibilities: Manages user registration, login, and password hashing. It is the sole creator of JWTs and the source of truth for a user's roles.
-* Database: auth_db
-* Publishes Events:
-    1. UserCreated: Announces a new user has registered, triggering profile creation in user_service.
+- **Microservices**: Independently deployable, each owns its data and business logic.
+- **Synchronous gRPC**: Low-latency service-to-service calls for validation/reads.
+- **Asynchronous Kafka**: Event-driven choreography to decouple services and improve resilience.
+- **Data per Service**: Each service owns its Postgres schema; no cross-service DB writes.
+- **API Exposure**: REST for external clients; gRPC for internal calls.
+- **Container/K8s**: Docker images built per service; deployed to Kubernetes via CI/CD.
 
-**USER_SERVICE**
-* Responsibilities: Manages user profile data (name, contact info, etc.). It acts as a central "phone book" for other services.
-* Database: user_db
-* Consumes Events:
-    - UserCreated (from auth_service): To create a new, empty user profile.
-* Publishes Events:
-    - UserProfileUpdated: To announce changes to a user's name, allowing other services to update denormalized data.
-* Provides gRPC API:
-    - GetUserProfile(user_id): Allows other services to fetch a user's details.
+### Mermaid Diagram (paste into Markdown viewer)
+```mermaid
+graph LR
+    subgraph Clients
+        FE[Frontend]
+    end
 
-**TEAM_SERVICE**
-* Responsibilities: Manages teams, their rosters, and the roles of users within a team (e.g., Coach, Player).
-* Database: team_db
-* Consumes gRPC from:
-    - user_service: To validate users and get their names when adding them to a team.
-* Provides gRPC API:
-    - IsUserOnTeam(user_id, team_id): Allows other services to perform authorization checks.
+    FE -->|REST| API[(Ingress / API Gateway)]
 
-**EVENT_SERVICE**
-* Responsibilities: Manages the creation, scheduling, and attendance for events like games and practices.
-* Database: event_db
-* Consumes Events:
-    - TeamUpdated, TeamMemberAdded (from team_service): To keep its denormalized data and attendance lists in sync.
-* Consumes gRPC from:
-    - team_service: To authorize actions (e.g., "Is this user a coach of the team for this event?").
-    - user_service: To get the latest user details for attendance lists.
+    API --> AUTH
+    API --> USER
+    API --> TEAM
+    API --> EVENT
+    API --> WORKOUT
 
-**WORKOUT_SERVICE**
-* Responsibilities: store/provide workout library for various sports
-* Still pending
+    subgraph Auth
+        AUTH[Auth Service]
+    end
 
-**FINANCE_SERVICE**
-* Responsibility: handle account subscriptions, team membership subscriptions, team financial management
-* Still pending
+    subgraph Users
+        USER[User Service]
+    end
 
-### 4. Communication Patterns
-**Synchronous: gRPC**
-- Used for request/response cycles where a service needs an immediate answer from another service to complete its task.
-- Example: When team_service adds a player, it must synchronously call user_service to confirm the user exists before committing the database transaction.
+    subgraph Teams
+        TEAM[Team Service]
+    end
 
-**Asynchronous: Kafka**
-- Used for fire-and-forget events to decouple services. The producing service does not wait for a response.
-- Example: When auth_service registers a new user, it publishes a UserCreated event. It doesn't know or care if user_service is online to process it immediately. The event will wait in the Kafka topic until the consumer is ready, ensuring resilience
+    subgraph Events
+        EVENT[Event Service]
+    end
+
+    subgraph Workouts
+        WORKOUT[Workout Service]
+    end
+
+    subgraph Kafka
+        KAFKA[(Kafka Topics)]
+    end
+
+    AUTH -- UserCreated --> KAFKA
+    KAFKA -- consume --> USER
+
+    TEAM -- TeamEvents --> KAFKA
+    KAFKA -- consume --> EVENT
+
+    AUTH -. gRPC .-> USER
+    TEAM -. gRPC .-> USER
+    EVENT -. gRPC .-> TEAM
+    EVENT -. gRPC .-> USER
+    WORKOUT -. gRPC .-> USER
+
+    AUTH ===|Postgres| AUTHDB[(auth_db)]
+    USER ===|Postgres| USERDB[(user_db)]
+    TEAM ===|Postgres| TEAMDB[(team_db)]
+    EVENT ===|Postgres| EVENTDB[(event_db)]
+    WORKOUT ===|Postgres + MinIO| WORKOUTDB[(workout_db + media)]
+```
+
+## Services and Responsibilities
+
+### Auth Service
+- **Purpose**: Registration, login, JWT issuance (access/refresh), role claims, and publishing `UserCreated` events.
+- **Stores**: Users, roles, user_roles.
+- **Sync**: gRPC token/claims verification (middleware use).
+- **Async**: Publishes `UserCreated` to Kafka for profile creation.
+
+### User Service
+- **Purpose**: Owns user profiles (name/email/metadata). Source of truth for user identity data consumed by other services.
+- **Stores**: Profiles table.
+- **Sync**: gRPC to serve profile data to team, event, workout services.
+- **Async**: Consumes `UserCreated` to auto-create profiles.
+
+### Team Service
+- **Purpose**: Teams, rosters, member roles (coach/manager/player), and roster queries.
+- **Stores**: Teams and team_members tables.
+- **Sync**: gRPC to user-service for member validation; gRPC server for roster/role checks.
+- **Async**: Publishes team events to Kafka (e.g., roster changes) for downstream consumers (event-service).
+
+### Event Service
+- **Purpose**: Team events (games/practices), scheduling, attendance.
+- **Stores**: Events and attendance tables.
+- **Sync**: gRPC to team-service (authorize team context) and user-service (attendee details).
+- **Async**: Consumes team events as needed for denormalized views.
+
+### Workout Service
+- **Purpose**: Workouts, exercises, media metadata; presigned uploads to MinIO.
+- **Stores**: Workouts, exercises, workout_exercises, media tables; assets in MinIO.
+- **Sync**: gRPC to user-service for ownership/identity checks.
+- **Async**: None today (could emit media or workout events later).
+
+### Shared Packages
+- `sports-common-package`: Shared middleware (JWT claims), gRPC stubs, and cross-cutting helpers.
+- `sports-proto`: Proto definitions for gRPC services.
+
+## Communication Patterns
+
+- **gRPC (sync)**: Used for read/validate flows needing immediate response (e.g., team→user: ensure member exists before add; event→team: ensure requester is coach).
+- **Kafka (async)**: Used for decoupling creation/update flows (e.g., auth emits `UserCreated`, user-service consumes later; team emits roster events, event-service ingests for attendance views). Improves resilience to partial outages and allows replay.
+- **REST**: External clients interact through HTTP/JSON; internal calls prefer gRPC.
+
+## Design Decisions & Trade-offs
+
+- **Service-per-domain**: Clear ownership (auth/user/team/event/workout). Avoids shared databases and reduces coupling. Trade-off: more deployment and ops overhead.
+- **gRPC for internal calls**: Chosen for performance and strong contracts. Trade-off: additional proto/tooling maintenance versus simpler REST.
+- **Kafka for events**: Chosen to decouple services and allow replay. Trade-off: operational complexity (brokers, topics, monitoring) and eventual consistency for consumers.
+- **Postgres per service**: Ensures autonomy and independent scaling. Trade-off: cross-entity queries need APIs instead of JOINs.
+- **JWT-based auth**: Stateless, fast checks at edges; roles embedded in claims. Trade-off: revocation/blacklist requires extra mechanism (future work).
+- **MinIO for media**: S3-compatible and self-hostable for workout assets. Trade-off: manage object storage availability and lifecycle.
+- **Kubernetes deploy**: Standardized CI/CD (lint → test → build image → push → kubectl apply). Trade-off: cluster ops overhead vs. simplicity of single VM.
+
+## CI/CD Overview
+
+1. **Lint**: golangci-lint per service.
+2. **Test**: `go test ./...` per service; sqlmock-based unit tests for auth; handlers to be expanded.
+3. **Build & Push**: Docker Buildx, tags `latest` and commit SHA.
+4. **Deploy**: kubectl apply manifests in `k8s/`; uses secrets for kubeconfig and Docker Hub.
+
+## Local Development
+
+- `docker-compose up` (for local stack: Postgres, Kafka, MinIO, services) — adjust as needed.
+- Per-service run: `go run ./cmd/main.go` after setting `.env`.
+- Lint: `golangci-lint run ./...`
+- Test: `go test ./...`
+
+## Future Work
+
+- Add finance/billing service (subscriptions, team billing).
+- Expand handler tests across all services.
+- Token revocation/blacklist and rate limiting on auth endpoints.
+- Event sourcing or outbox pattern for stronger delivery guarantees.
+- Observability stack (metrics/logs/traces) standardized across services.
