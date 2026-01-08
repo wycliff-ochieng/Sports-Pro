@@ -1,0 +1,65 @@
+app:  app/v1
+kind: Deployment
+metadata:
+  name: user-service-Deployment
+  labels:
+    app:  user-service
+spec:
+  replicas: 2
+  selector: #how deployment finds its pods
+    matchLables:
+      app: user-service
+  #template - blue print of pods
+  template:
+    metadata:
+      labels:
+        app: user-service
+      spec:
+        containers:
+
+        #container configuration
+          - name:
+            image:
+            imagePullPolicy: Always
+            ports: 
+              - containerPort: 
+                name: http
+              - containerPort:
+                name: grpc
+            #configuration injection / injecting values from configMap
+            env: 
+              - name: PORT_HTTP
+                value:
+              - name: PORT_GRPC
+                value:
+              - name:
+                value:
+              - name: KAFKA_BROKERS
+                valueFrom:
+                  configMapKeyRef:
+                    name: sports-pro-configuration # name of the configMap object
+                    key:  KAFKA_BROKERS_URL #key within that object
+              #injecting sensitive daata from secrets
+              - name: DATABASE_CONF
+                valueFrom:
+                  secretMapKeyRef:
+                    name: sports-app-secrets
+                    key: USER_DB_URL
+            #Health-checks
+            redinessProbe:
+            # K8s will send an HTTP GET to this path to see if the app is ready for traffic
+              httpGet:
+                path:
+                port:
+              initialDelaySeconds: 10
+              periodSeconds: 5
+
+            livenessProbe:
+              #k3s will periodically check to see if the ap is still alive
+              httpGet:
+                path:
+                port:
+              initialDelaySeconds: 10
+              periodSeconds: 5
+              failureThreshold: 3
+
