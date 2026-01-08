@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sportspro-configurations
+data:
+  # property-like keys; each key maps to a simple value
+  KAFKA_BROKERS_URL: 
+  USER_SERVICE_GRPC_ADDRESS:
+
+  # file-like keys
