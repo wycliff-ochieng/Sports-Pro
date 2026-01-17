@@ -1,0 +1,20 @@
+apiVersion: min.io/v2
+kind: Tenant
+metadata:
+  name: sports-minio
+  namespace: sports-app
+spec:
+  #replicas: 2
+  pools:
+    - servers:  1
+      volumePerServer:  1
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage:  20Gi
+#automatic creation of internal service for our go apps to connect
+  exposeServices:
+    minio: true
+    console: true
