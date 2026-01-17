@@ -2,9 +2,38 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: sportspro-configurations
+  namespace: sports-app
 data:
-  # property-like keys; each key maps to a simple value
-  KAFKA_BROKERS_URL: 
-  USER_SERVICE_GRPC_ADDRESS:
+  KAFKA_BROKERS_URL: "PLAINTEXT://sports-kafka:9092"
+  MINIO_ENDPOINT: "http://minio:9000"
+  MINIO_BUCKET: "sportspro"
+  CORS_ALLOWED_ORIGINS: "http://localhost:5173"
 
-  # file-like keys
+  # auth
+  AUTH_HTTP_PORT: "8080"
+  AUTH_GRPC_PORT: "50051"
+  TOKEN_TTL: "15m"
+  REFRESH_TTL: "720h"
+
+  # user
+  USER_HTTP_PORT: "8081"
+  USER_GRPC_PORT: "50051"
+
+  # team
+  TEAM_HTTP_PORT: "4000"
+  TEAM_GRPC_PORT: "50052"
+
+  # event
+  EVENT_HTTP_PORT: "7000"
+  EVENT_GRPC_PORT: "50054"
+
+  # workout
+  WORKOUT_HTTP_PORT: "3000"
+  WORKOUT_GRPC_PORT: "50055"
+
+  # Cross-service addresses (gRPC)
+  AUTH_SERVICE_GRPC_ADDRESS: "auth-service:50051"
+  USER_SERVICE_GRPC_ADDRESS: "user-service:50051"
+  TEAM_SERVICE_GRPC_ADDRESS: "team-service:50052"
+  EVENT_SERVICE_GRPC_ADDRESS: "event-service:50054"
+  WORKOUT_SERVICE_GRPC_ADDRESS: "workout-service:50055"
