@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+netadata:
+  name: postgres-pvc
+  namespace:  sports-app
+spec:
+  access_modes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage:  10Gi
+
+##statefulset
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-statefulset
+  namespace:  sports-app
+spec:
+  replicas: 1
+  matchLabels:  
+    app: postgres
+  spec:
+    imagePullPolicy:
+      - name: docker-registry-secret
+    container:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+          - containerPort: 5432
+            name: postgres
+        env:
+          - name: POSTGRES_USER
+            value:  admin
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: sports-app-secret
+                key: POSTGRES_PASSWORD
+          - name: PGDATA
+            value: /var/lib/postgresql/data/pgdata
+        volumeMounts: #mount the pv into the pgdata directory
+          - name: postgres-storage
+            mountPath: /var/lib/postgresql/data/pgdata
+    volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName:  postgres-pvc
+
+#network endpoint the service layer
+apiVersion: apps/v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: sports-app
+spec:
+  selector:
+    app:  postgres
+  ports:
+    - protocol: TCP
+      port: 5432 #where service is listenning ffrom
+      targetPort: 5432 #forwads to the container port
+  type: ClusterIP
+          
+
