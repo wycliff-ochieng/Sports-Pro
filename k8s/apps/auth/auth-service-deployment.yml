@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: sports-app
+  labels:
+    app: auth-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      imagePullSecrets:
+        - name: docker-registry-secret
+      containers:
+        - name: auth
+          image: wyckie10784/sports-app-auth-service:v1.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: sportspro-configurations
+                  key: AUTH_DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: sportspro-configurations
+                  key: AUTH_DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: sportspro-configurations
+                  key: AUTH_DB_NAME
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: sportspro-configurations
+                  key: AUTH_DB_USER
+            - name: DB_SSLMODE
+              valueFrom:
+                configMapKeyRef:
+                  name: sportspro-configurations
+                  key: DB_SSLMODE
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sports-app-secrets
+                  key: AUTH_DB_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: sports-app-secrets
+                  key: JWT_SECRET_KEY
+            - name: REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: sports-app-secrets
+                  key: REFRESH_SECRET_KEY
+            - name: CORS_ALLOWED_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: sportspro-configurations
+                  key: CORS_ALLOWED_ORIGINS
+            - name: KAFKA_BROKER
+              valueFrom:
+                configMapKeyRef:
+                  name: sportspro-configurations
+                  key: KAFKA_BROKERS_URL
