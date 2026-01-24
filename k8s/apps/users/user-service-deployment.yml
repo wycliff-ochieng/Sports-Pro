@@ -1,65 +1,94 @@
-app:  app/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: user-service-Deployment
+  name: user-service
+  namespace: sports-app
   labels:
-    app:  user-service
+    app: user-service
 spec:
   replicas: 2
   selector: #how deployment finds its pods
-    matchLables:
+    matchLabels:
       app: user-service
   #template - blue print of pods
   template:
     metadata:
       labels:
         app: user-service
-      spec:
-        containers:
-
-        #container configuration
-          - name:
-            image:
-            imagePullPolicy: Always
-            ports: 
-              - containerPort: 
-                name: http
-              - containerPort:
-                name: grpc
-            #configuration injection / injecting values from configMap
-            env: 
-              - name: PORT_HTTP
-                value:
-              - name: PORT_GRPC
-                value:
-              - name:
-                value:
-              - name: KAFKA_BROKERS
-                valueFrom:
-                  configMapKeyRef:
-                    name: sports-pro-configuration # name of the configMap object
-                    key:  KAFKA_BROKERS_URL #key within that object
-              #injecting sensitive daata from secrets
-              - name: DATABASE_CONF
-                valueFrom:
-                  secretMapKeyRef:
-                    name: sports-app-secrets
-                    key: USER_DB_URL
-            #Health-checks
-            redinessProbe:
-            # K8s will send an HTTP GET to this path to see if the app is ready for traffic
-              httpGet:
-                path:
-                port:
-              initialDelaySeconds: 10
-              periodSeconds: 5
-
-            livenessProbe:
-              #k3s will periodically check to see if the ap is still alive
-              httpGet:
-                path:
-                port:
-              initialDelaySeconds: 10
-              periodSeconds: 5
-              failureThreshold: 3
+    spec:
+      imagePullSecrets:
+        - name: docker-registry-secret
+      containers:
+        - name: user
+          image: wyckie10784/sports-app-user-service:v1.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9000
+              name: http
+            - containerPort: 50051
+              name: grpc
+          env:
+            - name: PORT_HTTP
+              valueFrom:
+                configMapKeyRef:
+                  name: sportspro-configurations
+                  key: USER_HTTP_PORT
+            - name: PORT_GRPC
+              valueFrom:
+                configMapKeyRef:
+                  name: sportspro-configurations
+                  key: USER_GRPC_PORT
+            - name: KAFKA_BROKER
+              valueFrom:
+                configMapKeyRef:
+                  name: sportspro-configurations
+                  key: KAFKA_BROKERS_URL
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: sportspro-configurations
+                  key: USER_DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: sportspro-configurations
+                  key: USER_DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: sportspro-configurations
+                  key: USER_DB_NAME
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: sportspro-configurations
+                  key: USER_DB_USER
+            - name: DB_SSLMODE
+              valueFrom:
+                configMapKeyRef:
+                  name: sportspro-configurations
+                  key: DB_SSLMODE
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sports-app-secrets
+                  key: USER_DB_PASSWORD
+            - name: CORS_ALLOWED_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: sportspro-configurations
+                  key: CORS_ALLOWED_ORIGINS
+          #readinessProbe:
+          #  httpGet:
+          #    path: /healthz
+          #    port: 9000
+          #  initialDelaySeconds: 10
+          #  periodSeconds: 5
+          #livenessProbe:
+          #  httpGet:
+          #    path: /healthz
+          #    port: 9000
+          #  initialDelaySeconds: 10
+          #  periodSeconds: 10
+          #  failureThreshold: 3
 
