@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: sports-app
+spec:
+  selector:
+    app: user-service
+  ports:
+    - name: http
+      port: 9000       # stable cluster port
+      targetPort: 9000 # containerPort in Deployment
+    - name: grpc
+      port: 50051
+      targetPort: 50051
+  type: ClusterIP
