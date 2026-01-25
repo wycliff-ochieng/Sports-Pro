@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: sports-app
+spec:
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80 # This service will listen on port 80...
+      targetPort: http # ...and forward to the container's named 'http' port (also 80)
+  type: ClusterIP
