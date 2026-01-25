@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  namespace: sports-app
+spec:
+  replicas: 2 # Run two copies for availability
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      imagePullSecrets:
+        - name: docker-registry-secret
+      containers:
+        - name: frontend
+          image: wyckie10784/sportspro-frontend:v1.0.4
+          ports:
+            - containerPort: 80 # The port Nginx is listening on
+              name: http
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: frontend-nginx-config
+          # Health checks for Nginx are very simple
+          #readinessProbe:
+          #  httpGet:
+          #    path: /index.html
+          #    port: http
+          #  initialDelaySeconds: 5
+          #  periodSeconds: 5
+          #livenessProbe:
+          #  httpGet:
+          #    path: /index.html
+          #    port: http
+          #  initialDelaySeconds: 10
+          #  periodSeconds: 10
