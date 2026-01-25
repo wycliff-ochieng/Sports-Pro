@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: team-service
+  namespace: sports-app
+spec:
+  selector:
+    app: team-service
+  ports:
+    - name: http
+      port: 4000
+      targetPort: 4000
+  type: ClusterIP
