@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 
@@ -12,28 +13,37 @@ import (
 
 type ContextKey string
 
-const UserUUIDKey ContextKey = "userUUID"
+const UserUUIDKey ContextKey = "userID"
 const RolesKey ContextKey = "roles"
-const UserIDKey ContextKey = "userID"
+const UserIDKey ContextKey = "ID"
 
+//	type Claims struct {
+//		UserUUID string   `json:"sub"`
+//		Roles    []string `json:"roles"`
+//		jwt.RegisteredClaims
+//	}
 type Claims struct {
-	UserUUID string   `json:"sub"`
-	Roles    []string `json:"roles"`
+	ID     int       `json:"id"`
+	UserID uuid.UUID `json:"userid"`
+	Roles  []string  `json:"roles"`
+	Email  string    `json:"email"`
 	jwt.RegisteredClaims
 }
 
-func UserMiddlware(jwtSecret string) func(next http.Handler) http.Handler {
+func TeamMiddlware(jwtSecret string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			//get token from header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				http.Error(w, "empty authorization header", http.StatusExpectationFailed)
+				return
 			}
 
 			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 			if tokenString == authHeader {
 				http.Error(w, "Invalid token format", http.StatusBadRequest)
+				return
 			}
 
 			//validate token
@@ -44,13 +54,14 @@ func UserMiddlware(jwtSecret string) func(next http.Handler) http.Handler {
 				return []byte(jwtSecret), nil
 			})
 
-			if err != nil || token.Valid {
+			if err != nil || !token.Valid {
+				log.Fatalf("token error: %v", err)
 				http.Error(w, "wrong/expired token", http.StatusUnauthorized)
 				return
 			}
-			//Extract claims (the populate context)
+			//Extract claims (they populate context)
 			if claims, ok := token.Claims.(*Claims); ok {
-				ctx := context.WithValue(r.Context(), UserUUIDKey, claims.UserUUID)
+				ctx := context.WithValue(r.Context(), UserUUIDKey, claims.UserID)
 				ctx = context.WithValue(r.Context(), RolesKey, claims.Roles)
 				next.ServeHTTP(w, r.WithContext(ctx))
 			} else {
@@ -61,9 +72,16 @@ func UserMiddlware(jwtSecret string) func(next http.Handler) http.Handler {
 }
 
 func GetUserUUIDFromContext(ctx context.Context) (uuid.UUID, error) {
-	userUUID, ok := ctx.Value(UserUUIDKey).(uuid.UUID)
-	if !ok || userUUID == uuid.Nil {
+	userUUIDStr, ok := ctx.Value(UserUUIDKey).(string)
+	if !ok {
+		return uuid.Nil, errors.New("user id not found in the cpntext")
+	}
+	if userUUIDStr == "" {
 		return uuid.Nil, errors.New("UUID not found for this user")
+	}
+	userUUID, err := uuid.Parse(userUUIDStr)
+	if err != nil {
+		return uuid.Nil, err
 	}
 	return userUUID, nil
 }
@@ -88,7 +106,7 @@ func RequireRole(allowedRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Get the user's roles from the context set by the AuthMiddleware.
-			userRoles, ok := r.Context().Value(RolesKey).([]interface{})
+			userRoles, ok := r.Context().Value(RolesKey).([]string)
 			if !ok {
 				// This should not happen if AuthMiddleware is used correctly
 				http.Error(w, "Could not retrieve user roles from context", http.StatusInternalServerError)
@@ -103,12 +121,12 @@ func RequireRole(allowedRoles ...string) func(http.Handler) http.Handler {
 
 			// Check if the user has at least one of the allowed roles
 			for _, role := range userRoles {
-				roleStr, ok := role.(string)
-				if !ok {
-					continue
-				} // Skip if role is not a string
+				//roleStr, ok := role.(string)
+				//if !ok {
+				//	continue
+				//} // Skip if role is not a string
 
-				if _, found := allowedRolesSet[roleStr]; found {
+				if _, found := allowedRolesSet[role]; found {
 					// User has a required role, proceed to the next handler
 					next.ServeHTTP(w, r)
 					return

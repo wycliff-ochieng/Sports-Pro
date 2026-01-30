@@ -1,7 +1,7 @@
 -- migrations/XXXXXXXX_create_roles_table.sql
 
 -- +goose Up
-CREATE TABLE roles (
+CREATE TABLE IF NOT EXISTS roles (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) UNIQUE NOT NULL -- e.g., 'player', 'coach', 'manager'
 );

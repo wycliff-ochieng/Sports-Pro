@@ -45,7 +45,7 @@ func (s *APIServer) Run() {
 	bootstrapServers := os.Getenv("KAFKA_BROKER")
 
 	if bootstrapServers == "" {
-		bootstrapServers = "localhost:9092"
+		bootstrapServers = "KAFKA_BROKERS:9092"
 	}
 	groupID := "foo"
 	topic := "profiles"

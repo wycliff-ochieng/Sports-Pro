@@ -58,7 +58,6 @@ func (es *EventService) CreateTeamEvent(ctx context.Context, reqUserID uuid.UUID
 	}
 
 	//log.Printf("T-ID: %s", CreateEventReq.TeamID)
-
 	members, err := es.teamClient.CheckTeamMembership(ctx, membershipReq)
 	if err != nil {
 		return nil, err
@@ -66,7 +65,7 @@ func (es *EventService) CreateTeamEvent(ctx context.Context, reqUserID uuid.UUID
 
 	log.Printf("User: %s", reqUserID)
 	log.Printf("TeamID: %s", teamID)
-
+	
 	//check response/error from grRPC call- > if user is a member of that team or not and if member is coach/manager
 	membersInfo, found := members.Members[reqUserID.String()]
 	if !found {

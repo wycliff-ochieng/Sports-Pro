@@ -76,7 +76,7 @@ func (s *Server) Run() {
 	router := mux.NewRouter()
 
 	createWorkout := router.Methods("POST").Subrouter()
-	createWorkout.HandleFunc("/api", wh.CreateWorkout)
+	createWorkout.HandleFunc("/api/", wh.CreateWorkout)
 	createWorkout.Use(authMiddleware)
 
 	getWorkouts := router.Methods("GET").Subrouter()

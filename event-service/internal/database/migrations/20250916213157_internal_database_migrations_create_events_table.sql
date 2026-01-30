@@ -1,13 +1,12 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp"
-
-
-CREATE TEBALE IF NOT EXISTS attendance (
-    team_id uuid
-    event_id uuid PRIMARY KEY DEFAULT uuid_generate_v4
-    user_id uuid
-    event_status VARCHAR(20)
+CREATE TABLE events(
+    event_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_title VARCHAR(50),
+    event_type VARCHAR(20),
+    location VARCHAR(20),
+    start_time TIMESTAMP DEFAULT NOW(),
+    end_time TIMESTAMP DEFAULT NOW()
 ) ;
 -- +goose StatementEnd
 

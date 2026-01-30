@@ -29,11 +29,13 @@ func UserMiddlware(jwtSecret string) func(next http.Handler) http.Handler {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				http.Error(w, "empty authorization header", http.StatusExpectationFailed)
+				return
 			}
 
 			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 			if tokenString == authHeader {
 				http.Error(w, "Invalid token format", http.StatusBadRequest)
+				return
 			}
 
 			//validate token
@@ -44,7 +46,7 @@ func UserMiddlware(jwtSecret string) func(next http.Handler) http.Handler {
 				return []byte(jwtSecret), nil
 			})
 
-			if err != nil || token.Valid {
+			if err != nil || !token.Valid {
 				http.Error(w, "wrong/expired token", http.StatusUnauthorized)
 				return
 			}
@@ -71,7 +73,7 @@ func GetUserUUIDFromContext(ctx context.Context) (string, error) {
 
 func GetUserIdFromcontext(ctx context.Context) (int, error) {
 	userID, ok := ctx.Value(UserIDKey).(int)
-	if ok || userID == 0 {
+	if !ok || userID == 0 {
 		return 0, errors.New("userID not found for this user")
 	}
 	return userID, nil

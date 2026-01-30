@@ -49,9 +49,19 @@ func (s *APIServer) Run() {
 		log.Fatalf("error setting up postgres connection due to: %v", err)
 	}
 
-	teamServiceAddress := "localhost:50052" //k8s service name and port
+	//teamServiceAddress := "localhost:50052" //k8s service name and port
 
-	userServiceAddress := "localhost:50051"
+	//userServiceAddress := "localhost:50051"
+
+	teamServiceAddress := os.Getenv("USER_SERVICE_GRPC_ADDR")
+	if teamServiceAddress == "" {
+		teamServiceAddress = "team-service:50051"
+	}
+
+	userServiceAddress := os.Getenv("USER_SERVICE_GRPC_ADDR")
+	if userServiceAddress == "" {
+		userServiceAddress = "user-service:50051"
+	}
 
 	teamConn, err := grpc.NewClient(teamServiceAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

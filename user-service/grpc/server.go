@@ -28,6 +28,7 @@ func (s *Server) GetUserProfiles(ctx context.Context, req *grpc.GetUserRequest) 
 	//call user service for profile list
 	profiles, err := s.Service.GetUserProfilesByUUIDs(ctx, req.Userid)
 	if err != nil {
+		log.Printf("THE ERROR: %s", err)
 		s.Logger.Println("Issue getting user profiles from user-service")
 		return nil, err
 	}
@@ -45,3 +46,11 @@ func (s *Server) GetUserProfiles(ctx context.Context, req *grpc.GetUserRequest) 
 
 	return &grpc.GetUserProfileResponse{Profiles: grpcProfile}, nil
 }
+
+/*func (s *Server) GetUserProfile(ctx context.Context, req *grpc.GetUserRequest) (*grpc.GetUserProfileResponse, error) {
+
+	userID, err := uuid.Parse(req.Userid)
+	if err != nil {
+		s.Logger.Println("user getting user profile from user servvice")
+	}
+} */

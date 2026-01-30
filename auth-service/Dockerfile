@@ -1,26 +1,36 @@
-FROM golang:1.21-alpine as builder
+FROM golang:1.24-bookworm AS builder
 
-#install dependancies
+# Set necessary environment variables
+ENV CGO_ENABLED=1
+ENV GOOS=linux
+ENV GOARCH=amd64
+
 RUN apt-get update && apt-get install -y \
     librdkafka-dev \
     && rm -rf /var/lib/apt/lists/*
 
-#set work dir
 WORKDIR /app
-
 
 COPY go.mod go.sum ./
 
-#download dependancies
 RUN go mod download
+ 
+#copy source code
+COPY  . .
 
+RUN go build -o /dist/main ./cmd/main.go
 
-#copy source code into container
-#COPY ./auth-service ./
-COPY . . 
+FROM debian:bookworm-slim
 
-#build the go application
-RUN go build -o authentication-service
+RUN apt-get update && apt-get install -y \
+    librdkafka1 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-#run binary
-ENTRYPOINT["./authentication-service"]
+COPY --from=builder /dist/main /
+
+COPY --from=builder /app/internal/database/migrations ./internal/database/migrations
+
+EXPOSE 8000
+
+ENTRYPOINT ["/main"]

@@ -493,7 +493,6 @@ func (ws *WorkoutService) GetExercises(ctx context.Context, reqUser uuid.UUID) (
 
 // frontend->Go(Backend)->MiniIO
 func (ws *WorkoutService) GeneratePresignedURL(ctx context.Context, reqUser uuid.UUID, req *models.PresignedURLReq) (*models.PresignedURLRes, error) {
-
 	//create patth
 	filePath := fmt.Sprintf("%s/%s/%s-%s", req.ParentType, req.ParentID, uuid.New().String(), req.Filename)
 
@@ -516,11 +515,6 @@ func (ws *WorkoutService) GeneratePresignedURL(ctx context.Context, reqUser uuid
 }
 
 func (ws *WorkoutService) SaveMediaMetadata(ctx context.Context, req *models.MediaUploadCompleteReq) (*models.Media, error) {
-	// 1. Validate ParentType (must be 'workout' or 'exercise')
-	// Note: The DB constraint is uppercase 'WORKOUT'/'EXERCISE', so we might need to normalize.
-	// But let's assume the frontend sends lowercase and we convert, or we adjust the DB.
-	// The migration says: CHECK (parent_type IN ('WORKOUT', 'EXERCISE'))
-	// So we should convert to uppercase.
 
 	parentTypeUpper := strings.ToUpper(req.ParentType)
 	if parentTypeUpper != "WORKOUT" && parentTypeUpper != "EXERCISE" {

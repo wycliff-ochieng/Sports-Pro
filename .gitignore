@@ -1,0 +1,9 @@
+.golangci.yml
+test-api.sh
+.env
+auth-service/.env
+user-service/.env
+team-service/.env
+event-service/.env
+workout-service/.env
+minio_data

@@ -70,7 +70,7 @@ func (s *AuthService) Register(ctx context.Context, firstname string, lastname s
 
 	log.Printf("DEBUG: Attempting to assign role ID %d to user with internal ID %d", defaultRoleID, newUserID)
 
-	_, err = s.db.ExecContext(ctx, role_query, newUserID, defaultRoleID)
+	_, err = s.db.ExecContext(ctx, role_query, newUserUUID, defaultRoleID)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (s *AuthService) Login(ctx context.Context, email string, password string) 
 		return nil, nil, fmt.Errorf("passwords do no match: %v", err)
 	}
 
-	role, err := s.FetchUserRoles(ctx, user.ID)
+	role, err := s.FetchUserRoles(ctx, user.UserID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -119,6 +119,7 @@ func (s *AuthService) Login(ctx context.Context, email string, password string) 
 	//generate token pair
 	token, err := auth.GenerateTokenPair(
 		user.ID,
+		user.UserID,
 		role,
 		user.Email,
 		string(auth.JWTSecret),     //jwtsecret
@@ -137,21 +138,7 @@ func (s *AuthService) Login(ctx context.Context, email string, password string) 
 	}, nil
 }
 
-/*
-func (s *AuthService) FetchUserRoles(ctx context.Context, userID int) ([]string, error) {
-	query := `SELECT id,name FROM roles WHERE id=$1`
-
-	var role []string
-
-	err := s.db.QueryRowContext(ctx, query).Scan(&role)
-	if err != nil {
-		return nil, err
-	}
-	return role, nil
-}
-*/
-
-func (s *AuthService) FetchUserRoles(ctx context.Context, userID int) ([]string, error) {
+func (s *AuthService) FetchUserRoles(ctx context.Context, userID uuid.UUID) ([]string, error) {
 	query := `SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id=$1`
 
 	rows, err := s.db.QueryContext(ctx, query, userID)
