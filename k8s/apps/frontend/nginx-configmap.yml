@@ -5,43 +5,67 @@ metadata:
   namespace: sports-app
 data:
   nginx.conf: |
-    events { worker_connections 1024; }
+    events { 
+        worker_connections 1024; 
+    }
     http {
         include /etc/nginx/mime.types;
         
-        # FIX: Prevents Nginx from dropping the 31536 port on redirects
+        # CRUCIAL: Prevents Nginx from dropping the 31536 port during redirects
         absolute_redirect off;
         port_in_redirect off;
 
         server {
             listen 80;
 
-            # Simple CORS for Dev - Allow everything coming from your VPS
+            # --- Global CORS Headers ---
             add_header Access-Control-Allow-Origin * always;
             add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
-            add_header Access-Control-Allow-Headers "Authorization, Content-Type" always;
+            add_header Access-Control-Allow-Headers "Authorization, Content-Type, X-Requested-With" always;
 
-            if ($request_method = 'OPTIONS') { return 204; }
+            if ($request_method = 'OPTIONS') {
+                return 204;
+            }
 
+            # --- 1. Auth Service ---
             location /api/auth/ {
                 rewrite ^/api/auth/(.*)$ /$1 break;
                 proxy_pass http://auth-service:8000;
+                proxy_set_header Host $host;
             }
 
-            # Optimized Team Service Route
+            # --- 2. Team Service ---
             location /api/teams/ {
-                rewrite ^/api/teams/(.*)$ /api/teams/$1 break; # Matches your Go router
+                rewrite ^/api/teams/(.*)$ /$1 break; # Strips prefix to match Go router
                 proxy_pass http://team-service:4000;
-            }
-            
-            # Catch-all for team service without trailing slash
-            location /api/teams {
-                rewrite ^/api/teams(.*)$ /api/teams$1 break;
-                proxy_pass http://team-service:4000;
+                proxy_set_header Host $host;
             }
 
+            # --- 3. User Service (Profile) ---
+            location /api/profile/ {
+                rewrite ^/api/profile/(.*)$ /$1 break;
+                proxy_pass http://user-service:9000;
+                proxy_set_header Host $host;
+            }
+
+            # --- 4. Event Service ---
+            location /api/events/ {
+                rewrite ^/api/events/(.*)$ /$1 break;
+                proxy_pass http://event-service:7000;
+                proxy_set_header Host $host;
+            }
+
+            # --- 5. Workout Service ---
+            location /api/workout/ {
+                rewrite ^/api/workout/(.*)$ /$1 break;
+                proxy_pass http://workout-service:3000;
+                proxy_set_header Host $host;
+            }
+
+            # --- 6. Frontend Static Files ---
             location / {
                 root /usr/share/nginx/html;
+                index index.html;
                 try_files $uri $uri/ /index.html;
             }
         }
