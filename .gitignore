@@ -7,3 +7,6 @@ team-service/.env
 event-service/.env
 workout-service/.env
 minio_data
+SportsSyncPro/
+sports-common-package/
+sports-proto/
