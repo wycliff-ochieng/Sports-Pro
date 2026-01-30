@@ -4,32 +4,53 @@ metadata:
   name: sportspro-configurations
   namespace: sports-app
 data:
-  KAFKA_BROKERS_URL: "PLAINTEXT://sports-kafka:9092"
+  KAFKA_BROKERS_URL: "sports-kafka-kafka-bootstrap.sports-app.svc.cluster.local:9092"
   MINIO_ENDPOINT: "http://minio:9000"
   MINIO_BUCKET: "sportspro"
   CORS_ALLOWED_ORIGINS: "http://localhost:5173"
+  DB_SSLMODE: "disable"
 
   # auth
   AUTH_HTTP_PORT: "8080"
   AUTH_GRPC_PORT: "50051"
+  AUTH_DB_HOST: "auth-db.sports-app.svc.cluster.local"
+  AUTH_DB_PORT: "5432"
+  AUTH_DB_NAME: "Authentication"
+  AUTH_DB_USER: "admin"
   TOKEN_TTL: "15m"
   REFRESH_TTL: "720h"
 
   # user
   USER_HTTP_PORT: "8081"
   USER_GRPC_PORT: "50051"
+  USER_DB_HOST: "auth-db.sports-app.svc.cluster.local"
+  USER_DB_PORT: "5432"
+  USER_DB_NAME: "users"
+  USER_DB_USER: "admin"
 
   # team
   TEAM_HTTP_PORT: "4000"
   TEAM_GRPC_PORT: "50052"
+  TEAM_DB_HOST: "auth-db.sports-app.svc.cluster.local"
+  TEAM_DB_PORT: "5432"
+  TEAM_DB_NAME: "teams"
+  TEAM_DB_USER: "admin"
 
   # event
   EVENT_HTTP_PORT: "7000"
   EVENT_GRPC_PORT: "50054"
+  EVENT_DB_HOST: "auth-db.sports-app.svc.cluster.local"
+  EVENT_DB_PORT: "5432"
+  EVENT_DB_NAME: "events"
+  EVENT_DB_USER: "admin"
 
   # workout
   WORKOUT_HTTP_PORT: "3000"
   WORKOUT_GRPC_PORT: "50055"
+  WORKOUT_DB_HOST: "auth-db.sports-app.svc.cluster.local"
+  WORKOUT_DB_PORT: "5432"
+  WORKOUT_DB_NAME: "workouts"
+  WORKOUT_DB_USER: "admin"
 
   # Cross-service addresses (gRPC)
   AUTH_SERVICE_GRPC_ADDRESS: "auth-service:50051"
