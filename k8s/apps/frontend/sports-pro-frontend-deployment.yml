@@ -17,7 +17,7 @@ spec:
         - name: docker-registry-secret
       containers:
         - name: frontend
-          image: wyckie10784/sportspro-frontend:v1.0.4
+          image: wyckie10784/sportspro-frontend:v1.0.5
           ports:
             - containerPort: 80 # The port Nginx is listening on
               name: http
