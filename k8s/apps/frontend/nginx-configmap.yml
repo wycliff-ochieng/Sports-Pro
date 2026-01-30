@@ -5,94 +5,43 @@ metadata:
   namespace: sports-app
 data:
   nginx.conf: |
-    events {
-        worker_connections 1024;
-    }
-
+    events { worker_connections 1024; }
     http {
-        include       /etc/nginx/mime.types;
-        default_type  application/octet-stream;
-        sendfile        on;
-        keepalive_timeout  65;
-
-        # Allow CORS from your VPS IP and localhost
-        map $http_origin $cors_allow_origin {
-            default "$http_origin";
-        }
+        include /etc/nginx/mime.types;
+        
+        # FIX: Prevents Nginx from dropping the 31536 port on redirects
+        absolute_redirect off;
+        port_in_redirect off;
 
         server {
             listen 80;
 
-            # --- Global CORS Headers ---
-            add_header Access-Control-Allow-Origin $cors_allow_origin always;
-            add_header Access-Control-Allow-Credentials "true" always;
-            add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" always;
-            add_header Access-Control-Allow-Headers "Authorization, Content-Type, X-Requested-With" always;
+            # Simple CORS for Dev - Allow everything coming from your VPS
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Authorization, Content-Type" always;
 
-            # Handle Preflight OPTIONS requests
-            if ($request_method = 'OPTIONS') {
-                return 204;
-            }
+            if ($request_method = 'OPTIONS') { return 204; }
 
-            # --- 1. Auth Service ---
-            # Browser: /api/auth/register -> Backend: /register
             location /api/auth/ {
                 rewrite ^/api/auth/(.*)$ /$1 break;
                 proxy_pass http://auth-service:8000;
-                proxy_set_header Host $host;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             }
 
-            # --- 2. Team Service ---
-            # Browser: /api/teams/all -> Backend: /teams/all
+            # Optimized Team Service Route
             location /api/teams/ {
-                rewrite ^/api/teams/(.*)$ /teams/$1 break;
+                rewrite ^/api/teams/(.*)$ /api/teams/$1 break; # Matches your Go router
                 proxy_pass http://team-service:4000;
-                proxy_set_header Host $host;
+            }
+            
+            # Catch-all for team service without trailing slash
+            location /api/teams {
+                rewrite ^/api/teams(.*)$ /api/teams$1 break;
+                proxy_pass http://team-service:4000;
             }
 
-            # --- 3. User Service (Profile) ---
-            # Browser: /api/profile/info -> Backend: /info
-            location /api/profile/ {
-                rewrite ^/api/profile/(.*)$ /$1 break;
-                proxy_pass http://user-service:9000;
-                proxy_set_header Host $host;
-            }
-
-            # --- 4. Event Service ---
-            # Browser: /api/events/list -> Backend: /events/list
-            location /api/events/ {
-                rewrite ^/api/events/(.*)$ /events/$1 break;
-                proxy_pass http://event-service:7000;
-                proxy_set_header Host $host;
-            }
-
-            # --- 5. Workout Service ---
-            # Handles /api/workout, /api/exercise, /api/media
-            location /api/workout/ {
-                rewrite ^/api/workout/(.*)$ /workout/$1 break;
-                proxy_pass http://workout-service:3000;
-                proxy_set_header Host $host;
-            }
-
-            location /api/exercise/ {
-                rewrite ^/api/exercise/(.*)$ /exercise/$1 break;
-                proxy_pass http://workout-service:3000;
-                proxy_set_header Host $host;
-            }
-
-            location /api/media/ {
-                rewrite ^/api/media/(.*)$ /media/$1 break;
-                proxy_pass http://workout-service:3000;
-                proxy_set_header Host $host;
-            }
-
-            # --- 6. Frontend Static Files ---
             location / {
-                root   /usr/share/nginx/html;
-                index  index.html index.htm;
-                # Crucial for React/Vue Router to work on refresh
+                root /usr/share/nginx/html;
                 try_files $uri $uri/ /index.html;
             }
         }
