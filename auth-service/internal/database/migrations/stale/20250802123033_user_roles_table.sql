@@ -2,7 +2,7 @@
 
 -- +goose Up
 CREATE TABLE user_roles (
-    user_id INT NOT NULL,
+    user_id UUID NOT NULL,
     role_id INT NOT NULL,
     PRIMARY KEY (user_id, role_id), -- Ensures a user can't have the same role twice
     FOREIGN KEY (user_id) REFERENCES users(userid) ON DELETE CASCADE,

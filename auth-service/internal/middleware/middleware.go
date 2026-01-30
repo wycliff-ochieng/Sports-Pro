@@ -95,7 +95,6 @@ func RequireRole(allowedRoles ...string) func(http.Handler) http.Handler {
 					return
 				}
 			}
-
 			// If we get here, the user has none of the required roles
 			http.Error(w, "Forbidden: You don't have the required permissions.", http.StatusForbidden)
 		})

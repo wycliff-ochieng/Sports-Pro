@@ -16,10 +16,13 @@ type Team struct {
 }
 
 type TeamMembers struct {
-	TeamID   uuid.UUID `json:"teamid"`
-	UserID   uuid.UUID `json:"userid"`
-	Role     string    `json:"role"`
-	Joinedat time.Time `json:"joinedat"`
+	TeamID    uuid.UUID `json:"teamid"`
+	Role      string    `json:"role"`
+	Joinedat  time.Time `json:"joinedat"`
+	UserID    uuid.UUID `json:"userid"`
+	Firstname string    `json:"firstName,omitempty"`
+	Lastname  string    `json:"lastName,omitempty"`
+	Email     string    `json:"email,omitempty"`
 }
 
 type TeamInfo struct {
@@ -34,8 +37,8 @@ type TeamInfo struct {
 
 type TeamMembersResponse struct {
 	UserID    uuid.UUID
-	Firstname string
-	Lastname  string
+	Firstname string `json:"firstName"`
+	Lastname  string `json:"lastName"`
 	Email     string
 	Createdat time.Time
 	Updatedat time.Time
@@ -59,9 +62,10 @@ type UpdateTeamReq struct {
 }
 
 type AddMemberReq struct {
-	UserID   uuid.UUID `json:"userid"`
-	Role     string    `json:"role"`
-	Joinedat time.Time `json:"joinedat"`
+	UserID     uuid.UUID `json:"-"` // resolved target user UUID
+	Role       string    `json:"role"`
+	Joinedat   time.Time `json:"joinedat"`
+	Identifier string    `json:"userid"` // accepts uuid or email from client
 }
 
 type UpdateTeamMemberReq struct {

@@ -17,6 +17,8 @@ type Config struct {
 	DBUser     string
 	DBsslmode  string
 
+	AuthDBName string
+
 	JWTSecret          string
 	JWTExpiry          string
 	RefreshSecret      string
@@ -37,6 +39,7 @@ func Load() (*Config, error) {
 	config.DBName = getEnv("DB_NAME", "teams")
 	config.DBUser = getEnv("DB_USER", "admin")
 	config.DBsslmode = getEnv("DB_SSLMODE", "disable")
+	config.AuthDBName = getEnv("AUTH_DB_NAME", "Authentication")
 	config.JWTSecret = getEnv("JWT_SECRET", "mydogsnameisrufus")
 	config.RefreshSecret = getEnv("REFRESH_SECRET", "myotherdogiscalledseedolf")
 	config.CORSAllowedOrigins = getEnvAsSlice("CORS_ALLOWED_ORIGINS", []string{"http://localhost:5173"}, ",")

@@ -5,46 +5,54 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
+
+	"sports/authservice/internal/auth"
+	"sports/authservice/internal/models"
 	internal "sports/authservice/internal/producer"
 	"sports/authservice/internal/service"
-	"time"
 
 	"github.com/google/uuid"
 	//"github.com/google/uuid"
 )
 
+type AuthService interface {
+	Register(ctx context.Context, firstname, lastname, email, password string) (*models.UserResponse, error)
+	Login(ctx context.Context, email, password string) (*auth.TokenPair, *models.UserResponse, error)
+}
+
 type AuthHandler struct {
 	l  *log.Logger
-	As *service.AuthService
+	As AuthService
 	p  internal.KafkaProducer
 }
 
 type RegisterReq struct {
-	FirstName string
-	LastName  string
-	Email     string
-	Password  string
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	Email     string `json:"email"`
+	Password  string `json:"password"`
 }
 
 type LoginReq struct {
-	Email    string
-	Password string
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 type AuthenticationResponse struct {
 	User         interface{}
-	AccessToken  string
-	RefreshToken string
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
 }
 
 type UserCreatedEvent struct {
 	UserID    uuid.UUID `json:"userid"`
-	FirstName string    `json:"firstname"`
-	LastName  string    `json:"lastname"`
+	FirstName string    `json:"firstName"`
+	LastName  string    `json:"lastName"`
 	Email     string    `json:"email"`
 }
 
-func NewAuthHandler(l *log.Logger, as *service.AuthService, p internal.KafkaProducer) *AuthHandler {
+func NewAuthHandler(l *log.Logger, as AuthService, p internal.KafkaProducer) *AuthHandler {
 	return &AuthHandler{
 		l:  l,
 		As: as,

@@ -64,7 +64,7 @@ func (s *APIServer) Run() {
 
 	userServiceAddress := os.Getenv("USER_SERVICE_GRPC_ADDR")
 	if userServiceAddress == "" {
-		userServiceAddress = "localhost:50051"
+		userServiceAddress = "user-service:50051"
 	}
 
 	//userServiceAddress := "localhost:50051" // "user-service-svc:50051"  -> K8s name and grpc port
@@ -78,7 +78,7 @@ func (s *APIServer) Run() {
 
 	userClient := user_proto.NewUserServiceRPCClient(conn)
 
-	ts := service.NewTeamService(db, userClient, ep)
+	ts := service.NewTeamService(db, userClient, ep, s.cfg)
 
 	th := handlers.NewTeamHandler(l, ts)
 
@@ -143,7 +143,7 @@ func (s *APIServer) Run() {
 	//updateTeam.Use(middleware.UserMiddlware(s.cfg.JWTSecret))
 
 	addMember := router.Methods("POST").Subrouter()
-	addMember.HandleFunc("/api/team/{team_idid}/add", th.AddTeamMember)
+	addMember.HandleFunc("/api/team/{team_id}/add", th.AddTeamMember)
 	addMember.Use(authMiddleware)
 	addMember.Use(auth.RequireRole("coach", "manager", "player"))
 

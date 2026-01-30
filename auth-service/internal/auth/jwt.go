@@ -6,16 +6,18 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	auth "github.com/wycliff-ochieng/sports-common-package/middleware"
 )
 
-type Claims struct {
-	ID     int       `json:"id"`
-	UserID uuid.UUID `json:"userid"`
-	Roles  []string  `json:"roles"`
-	Email  string    `json:"email"`
-	jwt.RegisteredClaims
-}
-
+/*
+	type Claims struct {
+		ID     int       `json:"id"`
+		UserID uuid.UUID `json:"userid"`
+		Roles  []string  `json:"roles"`
+		Email  string    `json:"email"`
+		jwt.RegisteredClaims
+	}
+*/
 type TokenPair struct {
 	AccessToken  string
 	RefreshToken string
@@ -27,9 +29,9 @@ var RefreshSecret = []byte("myotherdogsnameistommy")
 func GenerateToken(id int, userID uuid.UUID, roles []string, email string, jwtSecret string, expiry time.Duration) (string, error) {
 	now := time.Now()
 
-	claims := &Claims{
+	claims := &auth.Claims{
 		ID:     id,
-		UserID: userID,
+		UserID: userID.String(),
 		Roles:  roles,
 		Email:  email,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -46,8 +48,8 @@ func GenerateToken(id int, userID uuid.UUID, roles []string, email string, jwtSe
 
 //validate token
 
-func ValidateToken(tokenString string, jwtSecret string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+func ValidateToken(tokenString string, jwtSecret string) (*auth.Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &auth.Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -58,7 +60,7 @@ func ValidateToken(tokenString string, jwtSecret string) (*Claims, error) {
 		return nil, fmt.Errorf("error parsing token : %v", err)
 	}
 
-	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+	if claims, ok := token.Claims.(*auth.Claims); ok && token.Valid {
 		return claims, nil
 	}
 	return nil, fmt.Errorf("invalid token")
